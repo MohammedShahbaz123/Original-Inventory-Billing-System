@@ -1,0 +1,9 @@
+body { margin:0; font-family:Arial; display:flex; }
+    .sidebar { width:220px; background:#222; color:#fff; height:100vh; padding:20px; }
+    .sidebar a { display:block; padding:10px; color:#fff; text-decoration:none; margin:5px 0; }
+    .sidebar a:hover { background:#444; }
+    .content { flex:1; padding:20px; }
+    .hidden { display:none; }
+    input,button,select { margin:5px 0; padding:8px; width:100%; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th,td { border:1px solid #ddd; padding:8px; text-align:left; }

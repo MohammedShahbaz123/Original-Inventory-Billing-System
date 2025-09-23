@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Inventory & Invoices</title>
+  <link rel="stylesheet" href="./Style.css">
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Dashboard</h2>
+    <a href="#" onclick="showPage('createItem')">Create Item</a>
+    <a href="#" onclick="showPage('salesInvoice')">Create Sales Invoice</a>
+    <a href="#" onclick="showPage('purchaseInvoice')">Create Purchase Invoice</a>
+    <a href="#" onclick="loadInventory()">Inventory</a>
+    <a href="#" onclick="loadSales()">Sales</a>
+  </div>
+
+  <div class="content">
+    <!-- Create Item -->
+    <div id="createItem" class="page hidden">
+      <h2>Create Item</h2>
+      <input type="text" id="itemName" placeholder="Item Name">
+      <input type="number" id="itemPrice" placeholder="Price">
+      <input type="number" id="itemStock" placeholder="Stock">
+      <button onclick="addItem()">Add Item</button>
+    </div>
+
+    <!-- Sales Invoice -->
+    <div id="salesInvoice" class="page hidden">
+      <h2>Create Sales Invoice</h2>
+      <select id="saleItem"></select>
+      <input type="number" id="saleQty" placeholder="Quantity">
+      <input type="number" id="saleTotal" placeholder="Total">
+      <button onclick="addSale()">Add Sale</button>
+    </div>
+
+    <!-- Purchase Invoice -->
+    <div id="purchaseInvoice" class="page hidden">
+      <h2>Create Purchase Invoice</h2>
+      <select id="purchaseItem"></select>
+      <input type="number" id="purchaseQty" placeholder="Quantity">
+      <input type="number" id="purchaseCost" placeholder="Cost">
+      <button onclick="addPurchase()">Add Purchase</button>
+    </div>
+
+    <!-- Inventory -->
+    <div id="inventory" class="page hidden">
+      <h2>Inventory</h2>
+      <table id="inventoryTable"></table>
+    </div>
+
+    <!-- Sales -->
+    <div id="sales" class="page hidden">
+      <h2>Sales</h2>
+      <table id="salesTable"></table>
+    </div>
+  </div>
+
+  <script src="./Script.js"></script>
+</body>
+</html>
