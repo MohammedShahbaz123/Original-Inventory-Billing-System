@@ -1,9 +1,65 @@
-body { margin:0; font-family:Arial; display:flex; }
-    .sidebar { width:220px; background:#222; color:#fff; height:100vh; padding:20px; }
-    .sidebar a { display:block; padding:10px; color:#fff; text-decoration:none; margin:5px 0; }
-    .sidebar a:hover { background:#444; }
-    .content { flex:1; padding:20px; }
-    .hidden { display:none; }
-    input,button,select { margin:5px 0; padding:8px; width:100%; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; }
-    th,td { border:1px solid #ddd; padding:8px; text-align:left; }
+/* Layout using flex-basis */
+body {
+  margin: 0;
+  font-family: Arial;
+  display: flex;
+  height: 100vh;       /* full viewport height */
+  overflow: hidden;    /* prevent body scrolling */
+}
+
+/* Sidebar */
+.sidebar {
+  flex: 0 0 220px;     /* do not grow/shrink, fixed 220px width */
+  background: #222;
+  color: #fff;
+  padding: 20px;
+  overflow-y: auto;    /* scroll if content overflows */
+}
+
+.sidebar a {
+  display: block;
+  padding: 10px;
+  color: #fff;
+  text-decoration: none;
+  margin: 5px 0;
+}
+
+.sidebar a:hover {
+  background: #444;
+}
+
+/* Main content area */
+.content {
+  flex: 1 1 auto;       /* take remaining space */
+  padding: 20px;
+  height: 95%;         /* full height of parent */
+  overflow-y: auto;     /* scrollable content */
+}
+
+.hidden {
+  display: none;
+}
+
+/* Form inputs and selects */
+input, button, select {
+  margin: 5px 0;
+  padding: 8px;
+  width: 100%;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}

@@ -1,6 +1,9 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbzUb-36VNEfaA9SwXSjC5U5696ANu0FJcB1tmZqW2QsM6p50TmvOo3p4s0G48IduCSuHA/exec"; // replace this
+// Your Google Apps Script URL
+const API_URL = "https://script.google.com/macros/s/AKfycbyoNtZddNqpgOFx2So63zgKURClLTnQkdVogAsHjqDEUL2AYzXVHPFE5x5uopu6jIWh_g/exec";
 
-    function showPage(id) {
+// -------------------------------------
+// Page switching
+function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
 
@@ -9,95 +12,201 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzUb-36VNEfaA9SwXSjC5U5
   }
 }
 
+// -------------------------------------
+// Add new item
+async function addItem() {
+  const name = encodeURIComponent(document.getElementById("itemName").value);
+  const price = encodeURIComponent(document.getElementById("itemPrice").value);
+  const stock = encodeURIComponent(document.getElementById("itemStock").value);
 
-    async function addItem() {
-  const data = {
-    name: document.getElementById("itemName").value,
-    price: document.getElementById("itemPrice").value,
-    stock: document.getElementById("itemStock").value
-  };
+  const url = `${API_URL}?action=addItem&name=${name}&price=${price}&stock=${stock}`;
 
-  let res = await fetch(API_URL + "?action=addItem", {
-    method: "POST",
-    body: JSON.stringify(data)
-  });
+  const res = await fetch(url);
+  const newId = await res.text();
 
-  let newId = await res.text();
   alert("Item Added! Item ID: " + newId);
+  document.getElementById("itemName").value = "";
+  document.getElementById("itemPrice").value = "";
+  document.getElementById("itemStock").value = "";
 }
 
+// -------------------------------------
+// Load items into dropdowns
 async function loadItemsDropdown() {
-  const res = await fetch(API_URL + "?action=getInventory");
+  const res = await fetch(`${API_URL}?action=getInventory`);
   const data = await res.json();
 
-  // Get item names (skip header row)
-  const items = data.slice(1).map(row => row[1]); 
+  const items = data.slice(1).map(row => row[1]); // skip header row
 
-  let saleSelect = document.getElementById("saleItem");
-  let purchaseSelect = document.getElementById("purchaseItem");
+  const saleSelect = document.getElementById("saleItem");
+  const purchaseSelect = document.getElementById("purchaseItem");
 
-  // Clear existing options
   saleSelect.innerHTML = "";
   purchaseSelect.innerHTML = "";
 
-  // Add dropdown options
   items.forEach(item => {
-    let option1 = document.createElement("option");
-    option1.value = item;
-    option1.textContent = item;
-    saleSelect.appendChild(option1);
-
-    let option2 = document.createElement("option");
-    option2.value = item;
-    option2.textContent = item;
-    purchaseSelect.appendChild(option2);
+    const option1 = new Option(item, item);
+    const option2 = new Option(item, item);
+    saleSelect.add(option1);
+    purchaseSelect.add(option2);
   });
 }
 
-    async function addSale() {
-      const data = {
-        invoiceId: Date.now(),
-        date: new Date().toLocaleDateString(),
-        item: document.getElementById("saleItem").value,
-        qty: document.getElementById("saleQty").value,
-        total: document.getElementById("saleTotal").value
-      };
-      await fetch(API_URL + "?action=addSale", {
-        method: "POST",
-        body: JSON.stringify(data)
-      });
-      alert("Sale Recorded!");
-    }
+// -------------------------------------
+// Add sale
+async function addSale() {
+  const date = encodeURIComponent(new Date().toLocaleDateString());
+  const item = encodeURIComponent(document.getElementById("saleItem").value);
+  const qty = encodeURIComponent(document.getElementById("saleQty").value);
+  const total = encodeURIComponent(document.getElementById("saleTotal").value);
 
-    async function addPurchase() {
-      const data = {
-        invoiceId: Date.now(),
-        date: new Date().toLocaleDateString(),
-        item: document.getElementById("purchaseItem").value,
-        qty: document.getElementById("purchaseQty").value,
-        cost: document.getElementById("purchaseCost").value
-      };
-      await fetch(API_URL + "?action=addPurchase", {
-        method: "POST",
-        body: JSON.stringify(data)
-      });
-      alert("Purchase Recorded!");
-    }
+  const url = `${API_URL}?action=addSale&date=${date}&item=${item}&qty=${qty}&total=${total}`;
 
-    async function loadInventory() {
-      const res = await fetch(API_URL + "?action=getInventory");
-      const data = await res.json();
-      const table = document.getElementById("inventoryTable");
-      table.innerHTML = "<tr><th>ID</th><th>Name</th><th>Price</th><th>Stock</th></tr>" +
-        data.slice(1).map(row => `<tr>${row.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("");
-      showPage("inventory");
-    }
+  const res = await fetch(url);
+  const newId = await res.text();
 
-    async function loadSales() {
-      const res = await fetch(API_URL + "?action=getSales");
-      const data = await res.json();
-      const table = document.getElementById("salesTable");
-      table.innerHTML = "<tr><th>InvoiceID</th><th>Date</th><th>Item</th><th>Qty</th><th>Total</th></tr>" +
-        data.slice(1).map(row => `<tr>${row.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("");
-      showPage("sales");
-    }
+  alert("Sale Recorded! Invoice ID: " + newId);
+  document.getElementById("saleQty").value = "";
+  document.getElementById("saleTotal").value = "";
+}
+
+// -------------------------------------
+// Add purchase
+async function addPurchase() {
+  const date = encodeURIComponent(new Date().toLocaleDateString());
+  const item = encodeURIComponent(document.getElementById("purchaseItem").value);
+  const qty = encodeURIComponent(document.getElementById("purchaseQty").value);
+  const cost = encodeURIComponent(document.getElementById("purchaseCost").value);
+
+  const url = `${API_URL}?action=addPurchase&date=${date}&item=${item}&qty=${qty}&cost=${cost}`;
+
+  const res = await fetch(url);
+  const newId = await res.text();
+
+  alert("Purchase Recorded! Invoice ID: " + newId);
+  document.getElementById("purchaseQty").value = "";
+  document.getElementById("purchaseCost").value = "";
+}
+
+// -------------------------------------
+// Load inventory table
+async function loadInventory() {
+  const res = await fetch(`${API_URL}?action=getInventory`);
+  const data = await res.json();
+  const table = document.getElementById("inventoryTable");
+
+  let html = `<tr>
+      <th>ID</th>
+      <th>Name</th>
+      <th>Price</th>
+      <th>Stock</th>
+    </tr>`;
+
+  data.slice(1).forEach((row, i) => {
+    html += `<tr style="background-color:${i % 2 === 0 ? '#f9f9f9' : '#ffffff'}">
+      ${row.map(c => `<td>${c}</td>`).join("")}
+    </tr>`;
+  });
+
+  table.innerHTML = html;
+  showPage("inventory");
+}
+
+// -------------------------------------
+// Load sales table with totals
+async function loadSales() {
+  const res = await fetch(`${API_URL}?action=getSales`);
+  const data = await res.json();
+  const table = document.getElementById("salesTable");
+
+  let html = `<tr>
+      <th>InvoiceID</th>
+      <th>Date</th>
+      <th>Item</th>
+      <th>Qty</th>
+      <th>Total</th>
+    </tr>`;
+
+  let grandTotal = 0;
+
+  data.slice(1).forEach((row, i) => {
+    html += `<tr style="background-color:${i % 2 === 0 ? '#f9f9f9' : '#ffffff'}">
+      ${row.map(c => `<td>${c}</td>`).join("")}
+    </tr>`;
+    grandTotal += Number(row[4]) || 0;
+  });
+
+  html += `<tr style="font-weight:bold; background-color:#e0e0e0">
+    <td colspan="4" style="text-align:right">Grand Total:</td>
+    <td>${grandTotal}</td>
+  </tr>`;
+
+  table.innerHTML = html;
+  showPage("sales");
+}
+// Temporary arrays to store items for invoice
+let tempSaleItems = [];
+let tempPurchaseItems = [];
+
+// --------------------------
+// Add item to sales invoice table (client-side)
+function addSaleItemToInvoice() {
+  const item = document.getElementById("saleItem").value;
+  const qty = Number(document.getElementById("saleQty").value);
+  const total = Number(document.getElementById("saleTotal").value);
+
+  if (!item || qty <= 0 || total <= 0) {
+    alert("Please enter valid values!");
+    return;
+  }
+
+  tempSaleItems.push({ item, qty, total });
+  renderSaleInvoiceTable();
+  document.getElementById("saleQty").value = "";
+  document.getElementById("saleTotal").value = "";
+}
+
+// Render sales invoice table dynamically
+function renderSaleInvoiceTable() {
+  const table = document.getElementById("saleInvoiceTable");
+  table.innerHTML = `<tr>
+    <th>Item</th><th>Qty</th><th>Total</th><th>Action</th>
+  </tr>`;
+
+  tempSaleItems.forEach((row, index) => {
+    table.innerHTML += `<tr>
+      <td>${row.item}</td>
+      <td>${row.qty}</td>
+      <td>${row.total}</td>
+      <td><button onclick="removeSaleItem(${index})">Remove</button></td>
+    </tr>`;
+  });
+}
+
+// Remove item from temp array
+function removeSaleItem(index) {
+  tempSaleItems.splice(index, 1);
+  renderSaleInvoiceTable();
+}
+
+// Save invoice (send all items to Apps Script)
+async function saveSaleInvoice() {
+  if (tempSaleItems.length === 0) {
+    alert("Add at least one item to save invoice!");
+    return;
+  }
+
+  const date = new Date().toLocaleDateString();
+  const itemsParam = encodeURIComponent(JSON.stringify(tempSaleItems));
+
+  const url = `${API_URL}?action=addSaleInvoice&date=${encodeURIComponent(date)}&items=${itemsParam}`;
+  const res = await fetch(url);
+  const invoiceId = await res.text();
+
+  alert("Sales Invoice Saved! Invoice ID: " + invoiceId);
+
+  tempSaleItems = [];
+  renderSaleInvoiceTable();
+}
+
+

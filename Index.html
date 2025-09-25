@@ -27,12 +27,17 @@
 
     <!-- Sales Invoice -->
     <div id="salesInvoice" class="page hidden">
-      <h2>Create Sales Invoice</h2>
-      <select id="saleItem"></select>
-      <input type="number" id="saleQty" placeholder="Quantity">
-      <input type="number" id="saleTotal" placeholder="Total">
-      <button onclick="addSale()">Add Sale</button>
-    </div>
+  <h2>Create Sales Invoice</h2>
+  <select id="saleItem"></select>
+  <input type="number" id="saleQty" placeholder="Quantity">
+  <input type="number" id="saleTotal" placeholder="Total">
+  <button onclick="addSaleItemToInvoice()">Add Item</button>
+
+  <h3>Invoice Items</h3>
+  <table id="saleInvoiceTable"></table>
+
+  <button onclick="saveSaleInvoice()">Save Invoice</button>
+</div>
 
     <!-- Purchase Invoice -->
     <div id="purchaseInvoice" class="page hidden">
