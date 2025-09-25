@@ -22,44 +22,71 @@
       <input type="text" id="itemName" placeholder="Item Name">
       <input type="number" id="itemPrice" placeholder="Price">
       <input type="number" id="itemStock" placeholder="Stock">
-      <button onclick="addItem()">Add Item</button>
+      <button onclick="addItem()" class="cursor">Add Item</button>
     </div>
 
-    <!-- Sales Invoice -->
-    <div id="salesInvoice" class="page hidden">
+    <!-- ================= Sales Invoice Page ================= -->
+<div id="salesInvoice" class="page hidden">
   <h2>Create Sales Invoice</h2>
-  <select id="saleItem"></select>
-  <input type="number" id="saleQty" placeholder="Quantity">
-  <input type="number" id="saleTotal" placeholder="Total">
+
+  <label for="saleItem">Item:</label>
+  <input list="saleItemsList" id="saleItem" placeholder="Select or type item">
+  <datalist id="saleItemsList"></datalist>
+
+  <label for="saleQty">Quantity:</label>
+  <input type="number" id="saleQty" placeholder="Enter quantity" min="1">
+
+  <label for="salePrice">Price:</label>
+  <input type="number" id="salePrice" placeholder="Enter price" min="0.01" step="0.01">
+
   <button onclick="addSaleItemToInvoice()">Add Item</button>
 
   <h3>Invoice Items</h3>
-  <table id="saleInvoiceTable"></table>
+  <table id="saleInvoiceTable" width="100%" border="1"></table>
 
   <button onclick="saveSaleInvoice()">Save Invoice</button>
 </div>
 
-    <!-- Purchase Invoice -->
-    <div id="purchaseInvoice" class="page hidden">
-      <h2>Create Purchase Invoice</h2>
-      <select id="purchaseItem"></select>
-      <input type="number" id="purchaseQty" placeholder="Quantity">
-      <input type="number" id="purchaseCost" placeholder="Cost">
-      <button onclick="addPurchase()">Add Purchase</button>
-    </div>
+<!-- ================= Purchase Invoice Page ================= -->
+<div id="purchaseInvoice" class="page hidden">
+  <h2>Create Purchase Invoice</h2>
 
-    <!-- Inventory -->
-    <div id="inventory" class="page hidden">
-      <h2>Inventory</h2>
-      <table id="inventoryTable"></table>
-    </div>
+  <label for="purchaseItem">Item:</label>
+  <input list="purchaseItemsList" id="purchaseItem" placeholder="Select or type item">
+  <datalist id="purchaseItemsList"></datalist>
 
-    <!-- Sales -->
-    <div id="sales" class="page hidden">
-      <h2>Sales</h2>
-      <table id="salesTable"></table>
-    </div>
-  </div>
+  <label for="purchaseQty">Quantity:</label>
+  <input type="number" id="purchaseQty" placeholder="Enter quantity" min="1">
+
+  <label for="purchasePrice">Price:</label>
+  <input type="number" id="purchasePrice" placeholder="Enter price" min="0.01" step="0.01">
+
+  <button onclick="addPurchaseItemToInvoice()">Add Item</button>
+
+  <h3>Invoice Items</h3>
+  <table id="purchaseInvoiceTable" width="100%" border="1"></table>
+
+  <button onclick="savePurchaseInvoice()">Save Invoice</button>
+</div>
+
+<!-- ================= Invoice Display Page ================= -->
+<div id="invoicePage" class="page hidden">
+  <!-- JS dynamically fills invoice here -->
+  <!-- Print and Download buttons appear at top-right inside JS -->
+</div>
+
+<!-- ================= Sales Table Page ================= -->
+<div id="sales" class="page hidden">
+  <h2>Sales</h2>
+  <div id="salesGrandTotal" tabindex="0"></div>
+  <table id="salesTable" width="100%" border="1"></table>
+</div>
+
+<!-- ================= Inventory Page ================= -->
+<div id="inventory" class="page hidden">
+  <h2>Inventory</h2>
+  <table id="inventoryTable" width="100%" border="1"></table>
+</div>
 
   <script src="./Script.js"></script>
 </body>
