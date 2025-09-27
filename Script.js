@@ -11,25 +11,46 @@ function showPage(id) {
   const page = document.getElementById(id);
   page.classList.remove('hidden');
 
-  // Focus the first input/select/button
+  // focus first field
   const firstInput = page.querySelector('input, select, button');
   if (firstInput) firstInput.focus();
 
+  // load dropdown items for invoices
   if (id === "salesInvoice" || id === "purchaseInvoice") {
     loadItemsDropdown();
   }
 }
 
 // =====================
-// Load Items into Dropdowns (Keyboard-friendly)
+// Create Item
+// =====================
+async function addItem() {
+  const name = document.getElementById("itemName").value.trim();
+  const price = Number(document.getElementById("itemPrice").value);
+  const stock = Number(document.getElementById("itemStock").value);
+
+  if (!name || price <= 0 || stock < 0) {
+    alert("Enter valid item details!");
+    return;
+  }
+
+  const url = `${API_URL}?action=addItem&name=${encodeURIComponent(name)}&price=${price}&stock=${stock}`;
+  await fetch(url);
+
+  alert("Item added!");
+  document.getElementById("itemName").value = "";
+  document.getElementById("itemPrice").value = "";
+  document.getElementById("itemStock").value = "";
+}
+
+// =====================
+// Load Items into Dropdowns
 // =====================
 async function loadItemsDropdown() {
   const res = await fetch(`${API_URL}?action=getInventory`);
   const data = await res.json();
-  const items = data.slice(1).map(row => row[1]);
+  const items = data.slice(1).map(row => row[1]); // item name column
 
-  const saleInput = document.getElementById("saleItem");
-  const purchaseInput = document.getElementById("purchaseItem");
   const saleList = document.getElementById("saleItemsList");
   const purchaseList = document.getElementById("purchaseItemsList");
 
@@ -41,9 +62,9 @@ async function loadItemsDropdown() {
     purchaseList.appendChild(new Option(item, item));
   });
 
-  // Clear inputs
-  saleInput.value = "";
-  purchaseInput.value = "";
+  // clear selected value
+  document.getElementById("saleItem").value = "";
+  document.getElementById("purchaseItem").value = "";
 }
 
 // =====================
@@ -53,7 +74,7 @@ let tempSaleItems = [];
 let tempPurchaseItems = [];
 
 // =====================
-// Add Sale Item to Invoice
+// Add Sale Item
 // =====================
 function addSaleItemToInvoice() {
   const item = document.getElementById("saleItem").value.trim();
@@ -61,7 +82,7 @@ function addSaleItemToInvoice() {
   const price = Number(document.getElementById("salePrice").value);
 
   if (!item || qty <= 0 || price <= 0) {
-    alert("Please enter valid values!");
+    alert("Enter valid values!");
     return;
   }
 
@@ -69,30 +90,25 @@ function addSaleItemToInvoice() {
   tempSaleItems.push({ item, qty, price, total });
   renderSaleInvoiceTable();
 
+  document.getElementById("saleItem").value = "";
   document.getElementById("saleQty").value = "";
   document.getElementById("salePrice").value = "";
-  document.getElementById("saleItem").focus();
 }
 
-// =====================
-// Render Sale Invoice Table
-// =====================
+// Render sale invoice table
 function renderSaleInvoiceTable() {
   const table = document.getElementById("saleInvoiceTable");
   let html = `<thead>
-      <tr>
-        <th>Item</th><th>Qty</th><th>Price</th><th>Total</th><th>Action</th>
-      </tr>
-    </thead>
-    <tbody>`;
+      <tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th><th>Action</th></tr>
+    </thead><tbody>`;
 
-  tempSaleItems.forEach((row, index) => {
+  tempSaleItems.forEach((row, i) => {
     html += `<tr>
       <td>${row.item}</td>
       <td>${row.qty}</td>
       <td>${row.price}</td>
       <td>${row.total}</td>
-      <td><button onclick="removeSaleItem(${index})">Remove</button></td>
+      <td><button onclick="removeSaleItem(${i})">Remove</button></td>
     </tr>`;
   });
 
@@ -100,20 +116,15 @@ function renderSaleInvoiceTable() {
   table.innerHTML = html;
 }
 
-// =====================
-// Remove Sale Item
-// =====================
-function removeSaleItem(index) {
-  tempSaleItems.splice(index, 1);
+function removeSaleItem(i) {
+  tempSaleItems.splice(i, 1);
   renderSaleInvoiceTable();
 }
 
-// =====================
-// Save Sale Invoice
-// =====================
+// Save sale invoice
 async function saveSaleInvoice() {
   if (tempSaleItems.length === 0) {
-    alert("Add at least one item to save invoice!");
+    alert("Add at least one item!");
     return;
   }
 
@@ -132,15 +143,15 @@ async function saveSaleInvoice() {
 }
 
 // =====================
-// Add Purchase Item to Invoice
+// Add Purchase Item
 // =====================
 function addPurchaseItemToInvoice() {
   const item = document.getElementById("purchaseItem").value.trim();
   const qty = Number(document.getElementById("purchaseQty").value);
   const price = Number(document.getElementById("purchasePrice").value);
 
-  if (!item || qty <= 0 || price <= 0) {
-    alert("Please enter valid values!");
+  if (!item || qty <= 0) {
+    alert("Enter valid values!");
     return;
   }
 
@@ -148,30 +159,25 @@ function addPurchaseItemToInvoice() {
   tempPurchaseItems.push({ item, qty, price, total });
   renderPurchaseInvoiceTable();
 
+  document.getElementById("purchaseItem").value = "";
   document.getElementById("purchaseQty").value = "";
   document.getElementById("purchasePrice").value = "";
-  document.getElementById("purchaseItem").focus();
 }
 
-// =====================
-// Render Purchase Invoice Table
-// =====================
+// Render purchase invoice table
 function renderPurchaseInvoiceTable() {
   const table = document.getElementById("purchaseInvoiceTable");
   let html = `<thead>
-      <tr>
-        <th>Item</th><th>Qty</th><th>Price</th><th>Total</th><th>Action</th>
-      </tr>
-    </thead>
-    <tbody>`;
+      <tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th><th>Action</th></tr>
+    </thead><tbody>`;
 
-  tempPurchaseItems.forEach((row, index) => {
+  tempPurchaseItems.forEach((row, i) => {
     html += `<tr>
       <td>${row.item}</td>
       <td>${row.qty}</td>
       <td>${row.price}</td>
       <td>${row.total}</td>
-      <td><button onclick="removePurchaseItem(${index})">Remove</button></td>
+      <td><button onclick="removePurchaseItem(${i})">Remove</button></td>
     </tr>`;
   });
 
@@ -179,20 +185,15 @@ function renderPurchaseInvoiceTable() {
   table.innerHTML = html;
 }
 
-// =====================
-// Remove Purchase Item
-// =====================
-function removePurchaseItem(index) {
-  tempPurchaseItems.splice(index, 1);
+function removePurchaseItem(i) {
+  tempPurchaseItems.splice(i, 1);
   renderPurchaseInvoiceTable();
 }
 
-// =====================
-// Save Purchase Invoice
-// =====================
+// Save purchase invoice
 async function savePurchaseInvoice() {
   if (tempPurchaseItems.length === 0) {
-    alert("Add at least one item to save invoice!");
+    alert("Add at least one item!");
     return;
   }
 
@@ -215,7 +216,6 @@ async function savePurchaseInvoice() {
 // =====================
 function showInvoicePage(invoiceId, date, items, type) {
   const container = document.getElementById("invoicePage");
-  if (!container) return alert("Invoice container not found!");
 
   let grandTotal = 0;
   let html = `<div style="position: relative;">
@@ -233,29 +233,27 @@ function showInvoicePage(invoiceId, date, items, type) {
       </thead>
       <tbody>`;
 
-  items.forEach(row => {
+  items.forEach(r => {
     html += `<tr>
-      <td>${row.item}</td>
-      <td>${row.qty}</td>
-      <td>${row.price}</td>
-      <td>${row.total}</td>
+      <td>${r.item}</td>
+      <td>${r.qty}</td>
+      <td>${r.price}</td>
+      <td>${r.total}</td>
     </tr>`;
-    grandTotal += row.total;
+    grandTotal += r.total;
   });
 
-  html += `<tr style="font-weight:bold; background:#f0f0f0;">
+  html += `<tr style="font-weight:bold;background:#f0f0f0;">
       <td colspan="3" style="text-align:right">Grand Total:</td>
       <td>${grandTotal}</td>
-    </tr>
-    </tbody>
-  </table>`;
+    </tr></tbody></table>`;
 
   container.innerHTML = html;
   showPage("invoicePage");
 }
 
 // =====================
-// Print Invoice
+// Print & Download
 // =====================
 function printInvoice() {
   const invoiceContent = document.getElementById("invoicePage").cloneNode(true);
@@ -263,27 +261,21 @@ function printInvoice() {
 
   const newWin = window.open("", "_blank");
   newWin.document.write(`
-    <html>
-      <head>
-        <title>Invoice</title>
-        <style>
-          table { width:100%; border-collapse: collapse; }
-          th, td { border:1px solid #000; padding:8px; text-align:left; }
-          th { background:#f0f0f0; }
-        </style>
-      </head>
-      <body>${invoiceContent.innerHTML}</body>
-    </html>
+    <html><head><title>Invoice</title>
+      <style>
+        table { width:100%; border-collapse: collapse; }
+        th, td { border:1px solid #000; padding:8px; }
+        th { background:#f0f0f0; }
+      </style>
+    </head><body>${invoiceContent.innerHTML}</body></html>
   `);
   newWin.document.close();
   newWin.print();
 }
 
-// =====================
-// Download Invoice as PDF
-// =====================
 async function downloadInvoicePDF() {
-  const element = document.getElementById("invoicePage");
+  const element = document.getElementById("invoicePage").cloneNode(true);
+  element.querySelectorAll("button").forEach(btn => btn.remove());
 
   if (typeof html2pdf === "undefined") {
     await new Promise(resolve => {
@@ -304,7 +296,79 @@ async function downloadInvoicePDF() {
 }
 
 // =====================
-// Enable Enter key for adding items
+// Load Inventory
+// =====================
+async function loadInventory() {
+  showPage("inventory");
+  const table = document.getElementById("inventoryTable");
+
+  const res = await fetch(`${API_URL}?action=getInventory`);
+  const data = await res.json();
+
+  let html = `<thead>
+      <tr><th>ID</th><th>Name</th><th>Price</th><th>Stock</th></tr>
+    </thead><tbody>`;
+
+  data.slice(1).forEach(row => {
+    html += `<tr>
+      <td>${row[0]}</td>
+      <td>${row[1]}</td>
+      <td>${row[2]}</td>
+      <td>${row[3]}</td>
+    </tr>`;
+  });
+
+  html += "</tbody>";
+  table.innerHTML = html;
+}
+
+// =====================
+// Load Sales
+// =====================
+async function loadSales() {
+  showPage("sales");
+  const table = document.getElementById("salesTable");
+  const totalDiv = document.getElementById("salesGrandTotal");
+
+  const res = await fetch(`${API_URL}?action=getSales`);
+  const data = await res.json();
+
+  let grandTotal = 0;
+  let html = `<thead>
+      <tr>
+        <th>Invoice ID</th>
+        <th>Date</th>
+        <th>Item</th>
+        <th>Quantity</th>
+        <th>Price</th>
+        <th>Total</th>
+      </tr>
+    </thead><tbody>`;
+
+  // Skip the header row from Google Sheets
+  data.slice(1).forEach(row => {
+    const [id, date, itemName, quantity, price, totalStr] = row;
+    const total = Number(totalStr) || 0;
+    grandTotal += total;
+
+    html += `<tr>
+      <td>${id}</td>
+      <td>${date}</td>
+      <td>${itemName}</td>
+      <td>${quantity}</td>
+      <td>${price}</td>
+      <td>${total.toFixed(2)}</td>
+    </tr>`;
+  });
+
+  html += "</tbody>";
+  table.innerHTML = html;
+  totalDiv.innerHTML = `<h3>Total Sales: ${grandTotal.toFixed(2)}</h3>`;
+}
+
+
+// =====================
+// Enter key shortcuts
 // =====================
 document.getElementById("salePrice").addEventListener("keypress", e => { if(e.key==="Enter") addSaleItemToInvoice(); });
 document.getElementById("purchasePrice").addEventListener("keypress", e => { if(e.key==="Enter") addPurchaseItemToInvoice(); });
