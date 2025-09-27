@@ -128,7 +128,7 @@ async function saveSaleInvoice() {
     return;
   }
 
-  const date = new Date().toLocaleDateString();
+  const date = formatDate();
   const itemsParam = encodeURIComponent(JSON.stringify(tempSaleItems));
   const url = `${API_URL}?action=addSaleInvoice&date=${encodeURIComponent(date)}&items=${itemsParam}`;
 
@@ -197,7 +197,7 @@ async function savePurchaseInvoice() {
     return;
   }
 
-  const date = new Date().toLocaleDateString();
+  const date = formatDate();
   const payload = encodeURIComponent(JSON.stringify({ date, items: tempPurchaseItems }));
   const url = `${API_URL}?action=addPurchaseInvoice&data=${payload}`;
 
@@ -366,9 +366,62 @@ async function loadSales() {
   totalDiv.innerHTML = `<h3>Total Sales: ${grandTotal.toFixed(2)}</h3>`;
 }
 
-
 // =====================
 // Enter key shortcuts
 // =====================
 document.getElementById("salePrice").addEventListener("keypress", e => { if(e.key==="Enter") addSaleItemToInvoice(); });
 document.getElementById("purchasePrice").addEventListener("keypress", e => { if(e.key==="Enter") addPurchaseItemToInvoice(); });
+// =====================
+// Keyboard Shortcuts
+// =====================
+document.addEventListener("keydown", function (e) {
+  // Alt + S => Open Sales Invoice
+  if (e.altKey && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    showPage("salesInvoice");
+  }
+
+  // Alt + P => Open Purchase Invoice
+  if (e.altKey && e.key.toLowerCase() === "p") {
+    e.preventDefault();
+    showPage("purchaseInvoice");
+  }
+
+  // Alt + Enter => Save Invoice
+  if (e.altKey && e.key === "Enter") {
+    e.preventDefault();
+    const salesVisible = !document.getElementById("salesInvoice").classList.contains("hidden");
+    const purchaseVisible = !document.getElementById("purchaseInvoice").classList.contains("hidden");
+
+    if (salesVisible) saveSaleInvoice();
+    if (purchaseVisible) savePurchaseInvoice();
+  }
+});
+
+// =====================
+// Enter => Next Input Focus
+// =====================
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Enter" && !e.altKey) {
+    const formInputs = Array.from(
+      document.querySelectorAll("input, select")
+    ).filter(el => el.offsetParent !== null); // only visible
+
+    const currentIndex = formInputs.indexOf(document.activeElement);
+    if (currentIndex > -1 && currentIndex < formInputs.length - 1) {
+      e.preventDefault();
+      formInputs[currentIndex + 1].focus();
+    }
+  }
+});
+// =====================
+// Date Formatter
+// =====================
+function formatDate(date = new Date()) {
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+}
+
