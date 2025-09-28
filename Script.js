@@ -1,7 +1,7 @@
 // =====================
 // Google Apps Script URL
 // =====================
-const API_URL = "https://script.google.com/macros/s/AKfycbwF4Y79ioyc_zYfsUIGqSUVujHMT3Ig3_o2RjiqG5yYw5EO15ShecdlkNimer56ciuuQg/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxKgamdMhZflXqTfD95ri3QqrvpjORguOhTMLd4P7qdz86T5QW2wtPo2wV833pAnc3bcw/exec";
 
 // =====================
 // Page Switching
@@ -9,15 +9,17 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwF4Y79ioyc_zYfsUIGqSUV
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
   const page = document.getElementById(id);
+  if (!page) return;
   page.classList.remove('hidden');
 
   // focus first field
   const firstInput = page.querySelector('input, select, button');
   if (firstInput) firstInput.focus();
 
-  // load dropdown items for invoices
+  // load dropdown items & parties for invoices
   if (id === "salesInvoice" || id === "purchaseInvoice") {
     loadItemsDropdown();
+    loadParties(); // ensure party dropdowns are up-to-date
   }
 }
 
@@ -41,6 +43,141 @@ async function addItem() {
   document.getElementById("itemName").value = "";
   document.getElementById("itemPrice").value = "";
   document.getElementById("itemStock").value = "";
+  loadItemsDropdown();
+}
+
+// =====================
+// Party Management - FIXED VERSION
+// =====================
+
+// Load parties from Google Sheet
+async function loadParties() {
+  try {
+    const res = await fetch(`${API_URL}?action=getParties`);
+    
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    
+    // First, get the response as text to see what we're dealing with
+    const responseText = await res.text();
+    console.log("Raw parties response:", responseText);
+    
+    let parties = [];
+    
+    // Try to parse as JSON
+    try {
+      const data = JSON.parse(responseText);
+      
+      // Handle different response formats from your GAS
+      if (Array.isArray(data)) {
+        // Direct array response (your original format)
+        parties = data;
+      } else if (data && Array.isArray(data.parties)) {
+        // Object with parties array (new format)
+        parties = data.parties;
+      } else if (data && data.success === false) {
+        console.error("Server error:", data.error);
+        throw new Error(data.error || "Failed to load parties");
+      }
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      console.log("Raw response that failed to parse:", responseText);
+      throw new Error("Invalid JSON response from server");
+    }
+    
+    // Update UI with parties
+    updatePartyUI(parties);
+    
+  } catch (err) {
+    console.error("Failed to load parties:", err);
+    alert("Failed to load parties. Check console for details.");
+    // Set empty arrays to avoid breaking the UI
+    updatePartyUI([]);
+  }
+}
+
+// Helper function to update all party-related UI elements
+function updatePartyUI(parties) {
+  const list = document.getElementById("partyList");
+  const saleParty = document.getElementById("saleParty");
+  const purchaseParty = document.getElementById("purchaseParty");
+
+  // Update party list
+  if (list) {
+    list.innerHTML = parties.length > 0 
+      ? parties.map(p => `<li>${escapeHtml(p)}</li>`).join("")
+      : "<li>No parties found</li>";
+  }
+
+  // Update sale party dropdown
+  if (saleParty) {
+    saleParty.innerHTML = `<option value="">-- Select Party --</option>`;
+    parties.forEach(p => {
+      let opt = document.createElement("option");
+      opt.value = p;
+      opt.textContent = p;
+      saleParty.appendChild(opt);
+    });
+  }
+
+  // Update purchase party dropdown
+  if (purchaseParty) {
+    purchaseParty.innerHTML = `<option value="">-- Select Party --</option>`;
+    parties.forEach(p => {
+      let opt = document.createElement("option");
+      opt.value = p;
+      opt.textContent = p;
+      purchaseParty.appendChild(opt);
+    });
+  }
+  
+  console.log("Updated UI with parties:", parties);
+}
+
+// Add a new party - FIXED VERSION
+async function addParty() {
+  const name = document.getElementById("partyName").value.trim();
+  if (!name) return alert("Party name cannot be empty!");
+
+  try {
+    const url = `${API_URL}?action=addParty&name=${encodeURIComponent(name)}`;
+    console.log("Adding party URL:", url);
+    
+    const res = await fetch(url);
+    
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    
+    // Get response as text first
+    const responseText = await res.text();
+    console.log("Add party raw response:", responseText);
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse addParty response:", parseError);
+      // If it's not JSON but the request succeeded, assume it worked
+      if (res.ok) {
+        data = { success: true };
+      } else {
+        throw new Error("Invalid response from server");
+      }
+    }
+
+    if (data.success) {
+      alert("Party added successfully!");
+      document.getElementById("partyName").value = "";
+      loadParties(); // refresh dropdowns
+    } else {
+      alert(data.error || "Failed to add party.");
+    }
+  } catch (err) {
+    console.error("Failed to add party:", err);
+    alert("Failed to add party. Check console for details.");
+  }
 }
 
 // =====================
@@ -49,22 +186,45 @@ async function addItem() {
 async function loadItemsDropdown() {
   const res = await fetch(`${API_URL}?action=getInventory`);
   const data = await res.json();
-  const items = data.slice(1).map(row => row[1]); // item name column
+  const items = (Array.isArray(data) && data.length > 1) ? data.slice(1).map(row => row[1]) : []; // item name column
 
   const saleList = document.getElementById("saleItemsList");
   const purchaseList = document.getElementById("purchaseItemsList");
 
-  saleList.innerHTML = "";
-  purchaseList.innerHTML = "";
+  if (saleList) saleList.innerHTML = "";
+  if (purchaseList) purchaseList.innerHTML = "";
 
   items.forEach(item => {
-    saleList.appendChild(new Option(item, item));
-    purchaseList.appendChild(new Option(item, item));
+    if (saleList) saleList.appendChild(new Option(item, item));
+    if (purchaseList) purchaseList.appendChild(new Option(item, item));
   });
 
-  // clear selected value
-  document.getElementById("saleItem").value = "";
-  document.getElementById("purchaseItem").value = "";
+  // clear selected value (if present)
+  const saleItemEl = document.getElementById("saleItem");
+  const purchaseItemEl = document.getElementById("purchaseItem");
+  if (saleItemEl) saleItemEl.value = "";
+  if (purchaseItemEl) purchaseItemEl.value = "";
+}
+
+// =====================
+// Validate Item Input with focus
+// =====================
+function isValidItem(inputId, listId) {
+  const inputEl = document.getElementById(inputId);
+  if (!inputEl) return false;
+  const input = inputEl.value.trim();
+  const list = document.getElementById(listId);
+  if (!list) return true; // no list to validate against
+
+  const options = Array.from(list.options).map(opt => opt.value);
+
+  if (!options.includes(input)) {
+    alert("Please select a valid item from the list!");
+    inputEl.focus();   // focus back to the input
+    inputEl.select();  // highlight text for quick correction
+    return false;
+  }
+  return true;
 }
 
 // =====================
@@ -74,46 +234,67 @@ let tempSaleItems = [];
 let tempPurchaseItems = [];
 
 // =====================
-// Add Sale Item
+// Add Sale Item - UPDATED to show calculation
 // =====================
 function addSaleItemToInvoice() {
-  const item = document.getElementById("saleItem").value.trim();
-  const qty = Number(document.getElementById("saleQty").value);
-  const price = Number(document.getElementById("salePrice").value);
+  // validate item exists in datalist
+  if (!isValidItem("saleItem", "saleItemsList")) return;
 
-  if (!item || qty <= 0 || price <= 0) {
-    alert("Enter valid values!");
+  const item = document.getElementById("saleItem").value.trim();
+  const qtyEl = document.getElementById("saleQty");
+  const priceEl = document.getElementById("salePrice");
+  const qty = Number(qtyEl.value);
+  const price = Number(priceEl.value);
+
+  if (!item || qty <= 0) {
+    alert("Please enter a valid quantity!");
+    qtyEl.focus();
+    return;
+  }
+  if (price <= 0) {
+    alert("Please enter a valid price!");
+    priceEl.focus();
     return;
   }
 
-  const total = qty * price;
-  tempSaleItems.push({ item, qty, price, total });
+  const subtotal = qty * price;
+  tempSaleItems.push({ item, qty, price, subtotal });
   renderSaleInvoiceTable();
 
+  // reset inputs and focus
   document.getElementById("saleItem").value = "";
-  document.getElementById("saleQty").value = "";
-  document.getElementById("salePrice").value = "";
+  qtyEl.value = "";
+  priceEl.value = "";
+  document.getElementById("saleItem").focus();
 }
 
-// Render sale invoice table
+// Render sale invoice table - UPDATED to show calculation
 function renderSaleInvoiceTable() {
   const table = document.getElementById("saleInvoiceTable");
   let html = `<thead>
-      <tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th><th>Action</th></tr>
+      <tr><th>Item</th><th>Qty</th><th>Price</th><th>Subtotal</th><th>Action</th></tr>
     </thead><tbody>`;
 
   tempSaleItems.forEach((row, i) => {
     html += `<tr>
-      <td>${row.item}</td>
+      <td>${escapeHtml(row.item)}</td>
       <td>${row.qty}</td>
-      <td>${row.price}</td>
-      <td>${row.total}</td>
+      <td>₹${row.price.toFixed(2)}</td>
+      <td>₹${row.subtotal.toFixed(2)}</td>
       <td><button onclick="removeSaleItem(${i})">Remove</button></td>
     </tr>`;
   });
 
+  // Add grand total row
+  const grandTotal = tempSaleItems.reduce((sum, item) => sum + item.subtotal, 0);
+  html += `<tr style="font-weight: bold; background: #f0f0f0;">
+    <td colspan="3" style="text-align: right;">Grand Total:</td>
+    <td>₹${grandTotal.toFixed(2)}</td>
+    <td></td>
+  </tr>`;
+
   html += "</tbody>";
-  table.innerHTML = html;
+  if (table) table.innerHTML = html;
 }
 
 function removeSaleItem(i) {
@@ -121,68 +302,116 @@ function removeSaleItem(i) {
   renderSaleInvoiceTable();
 }
 
-// Save sale invoice
+// Save sale invoice - UPDATED for subtotal
 async function saveSaleInvoice() {
+  const partyEl = document.getElementById("saleParty");
+  if (!partyEl) return alert("Party selector not found!");
+  const party = partyEl.value;
+  if (!party) {
+    alert("Please select a Party!");
+    partyEl.focus();
+    return;
+  }
+
   if (tempSaleItems.length === 0) {
     alert("Add at least one item!");
     return;
   }
 
   const date = formatDate();
-  const itemsParam = encodeURIComponent(JSON.stringify(tempSaleItems));
-  const url = `${API_URL}?action=addSaleInvoice&date=${encodeURIComponent(date)}&items=${itemsParam}`;
+  
+  // Build URL with individual parameters
+  const url = `${API_URL}?action=addSaleInvoice` +
+    `&date=${encodeURIComponent(date)}` +
+    `&party=${encodeURIComponent(party)}` +
+    `&items=${encodeURIComponent(JSON.stringify(tempSaleItems))}`;
 
-  const res = await fetch(url);
-  const invoiceId = await res.text();
+  console.log("Saving sale invoice URL:", url);
 
-  const savedItems = [...tempSaleItems];
-  tempSaleItems = [];
-  renderSaleInvoiceTable();
+  try {
+    const res = await fetch(url);
+    
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    
+    const invoiceId = await res.text();
+    const savedItems = [...tempSaleItems];
+    tempSaleItems = [];
+    renderSaleInvoiceTable();
 
-  showInvoicePage(invoiceId, date, savedItems, "Sale");
+    // show invoice page with party included
+    showInvoicePage(invoiceId, date, savedItems, "Sale", party);
+    
+    alert("Sale invoice saved successfully!");
+  } catch (err) {
+    console.error("Failed to save sale invoice:", err);
+    alert("Failed to save invoice: " + err.message);
+  }
 }
 
 // =====================
-// Add Purchase Item
+// Add Purchase Item - UPDATED to show calculation
 // =====================
 function addPurchaseItemToInvoice() {
+  // validate item exists in datalist
+  if (!isValidItem("purchaseItem", "purchaseItemsList")) return;
+
   const item = document.getElementById("purchaseItem").value.trim();
-  const qty = Number(document.getElementById("purchaseQty").value);
-  const price = Number(document.getElementById("purchasePrice").value);
+  const qtyEl = document.getElementById("purchaseQty");
+  const priceEl = document.getElementById("purchasePrice");
+  const qty = Number(qtyEl.value);
+  const price = Number(priceEl.value);
 
   if (!item || qty <= 0) {
-    alert("Enter valid values!");
+    alert("Please enter a valid quantity!");
+    qtyEl.focus();
+    return;
+  }
+  if (price <= 0) {
+    alert("Please enter a valid price!");
+    priceEl.focus();
     return;
   }
 
-  const total = qty * price;
-  tempPurchaseItems.push({ item, qty, price, total });
+  const subtotal = qty * price;
+  tempPurchaseItems.push({ item, qty, price, subtotal });
   renderPurchaseInvoiceTable();
 
+  // reset inputs and focus
   document.getElementById("purchaseItem").value = "";
-  document.getElementById("purchaseQty").value = "";
-  document.getElementById("purchasePrice").value = "";
+  qtyEl.value = "";
+  priceEl.value = "";
+  document.getElementById("purchaseItem").focus();
 }
 
-// Render purchase invoice table
+// Render purchase invoice table - UPDATED to show calculation
 function renderPurchaseInvoiceTable() {
   const table = document.getElementById("purchaseInvoiceTable");
   let html = `<thead>
-      <tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th><th>Action</th></tr>
+      <tr><th>Item</th><th>Qty</th><th>Price</th><th>Subtotal</th><th>Action</th></tr>
     </thead><tbody>`;
 
   tempPurchaseItems.forEach((row, i) => {
     html += `<tr>
-      <td>${row.item}</td>
+      <td>${escapeHtml(row.item)}</td>
       <td>${row.qty}</td>
-      <td>${row.price}</td>
-      <td>${row.total}</td>
+      <td>₹${row.price.toFixed(2)}</td>
+      <td>₹${row.subtotal.toFixed(2)}</td>
       <td><button onclick="removePurchaseItem(${i})">Remove</button></td>
     </tr>`;
   });
 
+  // Add grand total row
+  const grandTotal = tempPurchaseItems.reduce((sum, item) => sum + item.subtotal, 0);
+  html += `<tr style="font-weight: bold; background: #f0f0f0;">
+    <td colspan="3" style="text-align: right;">Grand Total:</td>
+    <td>₹${grandTotal.toFixed(2)}</td>
+    <td></td>
+  </tr>`;
+
   html += "</tbody>";
-  table.innerHTML = html;
+  if (table) table.innerHTML = html;
 }
 
 function removePurchaseItem(i) {
@@ -190,62 +419,93 @@ function removePurchaseItem(i) {
   renderPurchaseInvoiceTable();
 }
 
-// Save purchase invoice
+// Save purchase invoice - UPDATED for subtotal
 async function savePurchaseInvoice() {
+  const partyEl = document.getElementById("purchaseParty");
+  if (!partyEl) return alert("Party selector not found!");
+  const party = partyEl.value;
+  if (!party) {
+    alert("Please select a Party!");
+    partyEl.focus();
+    return;
+  }
+
   if (tempPurchaseItems.length === 0) {
     alert("Add at least one item!");
     return;
   }
 
   const date = formatDate();
-  const payload = encodeURIComponent(JSON.stringify({ date, items: tempPurchaseItems }));
-  const url = `${API_URL}?action=addPurchaseInvoice&data=${payload}`;
+  
+  // Build URL with individual parameters
+  const url = `${API_URL}?action=addPurchaseInvoice` +
+    `&date=${encodeURIComponent(date)}` +
+    `&party=${encodeURIComponent(party)}` +
+    `&items=${encodeURIComponent(JSON.stringify(tempPurchaseItems))}`;
 
-  const res = await fetch(url);
-  const invoiceId = await res.text();
+  console.log("Saving purchase invoice URL:", url);
 
-  const savedItems = [...tempPurchaseItems];
-  tempPurchaseItems = [];
-  renderPurchaseInvoiceTable();
+  try {
+    const res = await fetch(url);
+    const invoiceId = await res.text();
 
-  showInvoicePage(invoiceId, date, savedItems, "Purchase");
+    const savedItems = [...tempPurchaseItems];
+    tempPurchaseItems = [];
+    renderPurchaseInvoiceTable();
+
+    // show invoice page with party included
+    showInvoicePage(invoiceId, date, savedItems, "Purchase", party);
+    
+    alert("Purchase invoice saved successfully!");
+  } catch (err) {
+    console.error("Failed to save purchase invoice:", err);
+    alert("Failed to save invoice: " + err.message);
+  }
 }
 
 // =====================
-// Show Invoice Page
+// Show Invoice Page - UPDATED to show calculation
 // =====================
-function showInvoicePage(invoiceId, date, items, type) {
+function showInvoicePage(invoiceId, date, items, type, party = "") {
   const container = document.getElementById("invoicePage");
+  if (!container) return alert("Invoice container not found!");
 
   let grandTotal = 0;
   let html = `<div style="position: relative;">
-      <h2 style="margin:0;">${type} Invoice</h2>
+      <h2 style="margin:0;">${escapeHtml(type)} Invoice</h2>
       <div id="invoiceActions" style="position:absolute; top:0; right:0;">
-        <button onclick="printInvoice()" style="margin-right:5px;">Print</button>
-        <button onclick="downloadInvoicePDF()">Download</button>
+        <button id="printBtn" onclick="printInvoice()" style="margin-right:5px;">Print</button>
+        <button id="downloadBtn" onclick="downloadInvoicePDF()">Download</button>
       </div>
     </div>
-    <p><b>Invoice ID:</b> ${invoiceId}</p>
-    <p><b>Date:</b> ${date}</p>
+    <p><b>Invoice ID:</b> ${escapeHtml(String(invoiceId))}</p>
+    <p><b>Date:</b> ${escapeHtml(date)}</p>
+    <p><b>Party:</b> ${escapeHtml(party)}</p>
     <table border="1" width="100%" style="border-collapse: collapse;">
       <thead>
-        <tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr>
+        <tr>
+          <th>Item</th>
+          <th>Qty</th>
+          <th>Price</th>
+          <th>Subtotal</th>
+        </tr>
       </thead>
       <tbody>`;
 
   items.forEach(r => {
+    const subtotal = Number(r.subtotal) || (Number(r.qty) * Number(r.price));
     html += `<tr>
-      <td>${r.item}</td>
+      <td>${escapeHtml(r.item)}</td>
       <td>${r.qty}</td>
-      <td>${r.price}</td>
-      <td>${r.total}</td>
+      <td>₹${Number(r.price).toFixed(2)}</td>
+      <td>₹${subtotal.toFixed(2)}</td>
     </tr>`;
-    grandTotal += r.total;
+    grandTotal += subtotal;
   });
 
   html += `<tr style="font-weight:bold;background:#f0f0f0;">
       <td colspan="3" style="text-align:right">Grand Total:</td>
-      <td>${grandTotal}</td>
+      <td>₹${grandTotal.toFixed(2)}</td>
     </tr></tbody></table>`;
 
   container.innerHTML = html;
@@ -256,15 +516,20 @@ function showInvoicePage(invoiceId, date, items, type) {
 // Print & Download
 // =====================
 function printInvoice() {
-  const invoiceContent = document.getElementById("invoicePage").cloneNode(true);
-  invoiceContent.querySelectorAll("button").forEach(btn => btn.remove());
+  const container = document.getElementById("invoicePage");
+  if (!container) return;
+
+  // clone and remove action buttons
+  const invoiceContent = container.cloneNode(true);
+  invoiceContent.querySelectorAll("#invoiceActions, button").forEach(btn => btn.remove());
 
   const newWin = window.open("", "_blank");
   newWin.document.write(`
     <html><head><title>Invoice</title>
       <style>
-        table { width:100%; border-collapse: collapse; }
-        th, td { border:1px solid #000; padding:8px; }
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        table { width:100%; border-collapse: collapse; margin-top:10px; }
+        th, td { border:1px solid #000; padding:8px; text-align:left; }
         th { background:#f0f0f0; }
       </style>
     </head><body>${invoiceContent.innerHTML}</body></html>
@@ -274,8 +539,12 @@ function printInvoice() {
 }
 
 async function downloadInvoicePDF() {
-  const element = document.getElementById("invoicePage").cloneNode(true);
-  element.querySelectorAll("button").forEach(btn => btn.remove());
+  const container = document.getElementById("invoicePage");
+  if (!container) return;
+
+  // clone and remove action buttons
+  const element = container.cloneNode(true);
+  element.querySelectorAll("#invoiceActions, button").forEach(btn => btn.remove());
 
   if (typeof html2pdf === "undefined") {
     await new Promise(resolve => {
@@ -309,22 +578,26 @@ async function loadInventory() {
       <tr><th>ID</th><th>Name</th><th>Price</th><th>Stock</th></tr>
     </thead><tbody>`;
 
-  data.slice(1).forEach(row => {
-    html += `<tr>
-      <td>${row[0]}</td>
-      <td>${row[1]}</td>
-      <td>${row[2]}</td>
-      <td>${row[3]}</td>
-    </tr>`;
-  });
+  if (Array.isArray(data) && data.length > 1) {
+    data.slice(1).forEach(row => {
+      html += `<tr>
+        <td>${escapeHtml(row[0])}</td>
+        <td>${escapeHtml(row[1])}</td>
+        <td>${escapeHtml(row[2])}</td>
+        <td>${escapeHtml(row[3])}</td>
+      </tr>`;
+    });
+  }
 
   html += "</tbody>";
-  table.innerHTML = html;
+  if (table) table.innerHTML = html;
 }
 
 // =====================
 // Load Sales
 // =====================
+// Supports both older format (no party) and new format (InvoiceID, Date, Party, Item, Qty, Price, Total)
+// It skips the header row
 async function loadSales() {
   showPage("sales");
   const table = document.getElementById("salesTable");
@@ -335,42 +608,239 @@ async function loadSales() {
 
   let grandTotal = 0;
   let html = `<thead>
-      <tr>
-        <th>Invoice ID</th>
-        <th>Date</th>
-        <th>Item</th>
-        <th>Quantity</th>
-        <th>Price</th>
-        <th>Total</th>
-      </tr>
-    </thead><tbody>`;
+    <tr><th>Invoice ID</th><th>Date</th><th>Party</th><th>Items</th><th>Total</th></tr>
+  </thead><tbody>`;
 
-  // Skip the header row from Google Sheets
-  data.slice(1).forEach(row => {
-    const [id, date, itemName, quantity, price, totalStr] = row;
-    const total = Number(totalStr) || 0;
-    grandTotal += total;
+  if (!Array.isArray(data) || data.length <= 1) {
+    html += `<tr><td colspan="5">No sales found</td></tr>`;
+  } else {
+    // Group rows by invoice id if your sheet stores each item as separate row with same InvoiceID
+    // But since sheet format varies, we'll attempt a reasonable display:
+    // If a row has 6 columns (old): [id,date,item,qty,price,total]
+    // If a row has 7+ columns (new): [id,date,party,item,qty,price,total]
+    // We'll aggregate items per invoice for a nicer view.
 
-    html += `<tr>
-      <td>${id}</td>
-      <td>${date}</td>
-      <td>${itemName}</td>
-      <td>${quantity}</td>
-      <td>${price}</td>
-      <td>${total.toFixed(2)}</td>
-    </tr>`;
-  });
+    const rows = data.slice(1); // skip header
+    const invoices = {}; // invoiceId -> { date, party, items: [{item,qty,price,total}], total }
+
+    rows.forEach(r => {
+      // normalize length
+      if (r.length >= 7) {
+        // [id,date,party,item,qty,price,total]
+        const [id, date, party, itemName, qty, price, totalStr] = r;
+        if (!invoices[id]) invoices[id] = { date, party: party || "", items: [], total: 0 };
+        const t = Number(totalStr) || (Number(qty) * Number(price) || 0);
+        invoices[id].items.push({ item: itemName, qty, price, total: t });
+        invoices[id].total += t;
+      } else if (r.length === 6) {
+        // [id,date,itemName,qty,price,total]
+        const [id, date, itemName, qty, price, totalStr] = r;
+        if (!invoices[id]) invoices[id] = { date, party: "", items: [], total: 0 };
+        const t = Number(totalStr) || (Number(qty) * Number(price) || 0);
+        invoices[id].items.push({ item: itemName, qty, price, total: t });
+        invoices[id].total += t;
+      } else {
+        // unexpected shape - show joined cells
+        const id = r[0] || "Unknown";
+        if (!invoices[id]) invoices[id] = { date: r[1] || "", party: "", items: [], total: 0 };
+        invoices[id].items.push({ item: r.slice(2).join(" | "), qty: "", price: "", total: 0 });
+      }
+    });
+
+    Object.keys(invoices).forEach(invId => {
+      const inv = invoices[invId];
+      const itemsText = inv.items.map(it => `${it.item} (x${it.qty})`).join(", ");
+      const total = Number(inv.total) || 0;
+      grandTotal += total;
+      html += `<tr>
+        <td>${escapeHtml(invId)}</td>
+        <td>${escapeHtml(inv.date)}</td>
+        <td>${escapeHtml(inv.party || "")}</td>
+        <td>${escapeHtml(itemsText)}</td>
+        <td>${total.toFixed(2)}</td>
+      </tr>`;
+    });
+  }
 
   html += "</tbody>";
-  table.innerHTML = html;
-  totalDiv.innerHTML = `<h3>Total Sales: ${grandTotal.toFixed(2)}</h3>`;
+  if (table) table.innerHTML = html;
+  if (totalDiv) totalDiv.innerHTML = `<h3>Total Sales: ${grandTotal.toFixed(2)}</h3>`;
+}
+
+// Load Purchases - SIMPLIFIED VIEW
+// =====================
+async function loadPurchases() {
+  showPage("purchases");
+  const table = document.getElementById("purchasesTable");
+  const totalDiv = document.getElementById("purchasesGrandTotal");
+
+  try {
+    const res = await fetch(`${API_URL}?action=getPurchases`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    
+    const data = await res.json();
+    console.log("Purchases data:", data);
+
+    // Store the data for filtering and invoice details
+    window.allPurchasesData = processPurchasesData(data);
+    
+    renderPurchasesTable(window.allPurchasesData);
+    
+  } catch (err) {
+    console.error("Failed to load purchases:", err);
+    showError("Failed to load purchases: " + err.message);
+  }
+}
+
+// Process purchases data and group by invoice
+function processPurchasesData(data) {
+  if (!Array.isArray(data) || data.length <= 1) {
+    return [];
+  }
+
+  const rows = data.slice(1); // skip header
+  const invoices = {};
+
+  rows.forEach(r => {
+    if (r.length >= 7) {
+      // [id, date, party, itemName, qty, price, total]
+      const [id, date, party, itemName, qty, price, totalStr] = r;
+      if (!invoices[id]) {
+        invoices[id] = {
+          invoiceId: id,
+          date: date,
+          party: party || "",
+          items: [],
+          total: 0
+        };
+      }
+      const itemTotal = Number(totalStr) || (Number(qty) * Number(price) || 0);
+      invoices[id].items.push({
+        item: itemName,
+        qty: Number(qty) || 0,
+        price: Number(price) || 0,
+        total: itemTotal
+      });
+      invoices[id].total += itemTotal;
+    }
+  });
+
+  // Convert to array and sort by invoice ID (newest first)
+  return Object.values(invoices).sort((a, b) => b.invoiceId - a.invoiceId);
+}
+
+// Render purchases table
+function renderPurchasesTable(purchasesData, filter = "") {
+  const table = document.getElementById("purchasesTable");
+  const totalDiv = document.getElementById("purchasesGrandTotal");
+
+  let grandTotal = 0;
+  let html = `<thead>
+    <tr>
+      <th>Date</th>
+      <th>Invoice ID</th>
+      <th>Party Name</th>
+      <th>Total Amount</th>
+    </tr>
+  </thead><tbody>`;
+
+  if (!purchasesData || purchasesData.length === 0) {
+    html += `<tr><td colspan="4" style="text-align: center; padding: 20px;">No purchases found</td></tr>`;
+  } else {
+    const searchLower = filter.toLowerCase();
+    let filteredCount = 0;
+
+    purchasesData.forEach(purchase => {
+      // Apply filter
+      const matchesFilter = !filter || 
+        purchase.party.toLowerCase().includes(searchLower) ||
+        purchase.invoiceId.toString().includes(searchLower) ||
+        purchase.date.toLowerCase().includes(searchLower);
+
+      if (!matchesFilter) return;
+      
+      filteredCount++;
+      grandTotal += purchase.total;
+
+      html += `<tr class="purchase-row" data-invoice-id="${purchase.invoiceId}" 
+                style="cursor: pointer; transition: background-color 0.2s;"
+                onmouseover="this.style.backgroundColor='#f8f9fa'" 
+                onmouseout="this.style.backgroundColor='white'"
+                onclick="showPurchaseInvoice('${purchase.invoiceId}')">
+        <td>${escapeHtml(purchase.date)}</td>
+        <td style="text-align: center; font-weight: bold;">${escapeHtml(purchase.invoiceId)}</td>
+        <td>${escapeHtml(purchase.party || "N/A")}</td>
+        <td style="text-align: right; font-weight: bold; color: #28a745;">₹${purchase.total.toFixed(2)}</td>
+      </tr>`;
+    });
+
+    if (filteredCount === 0 && filter) {
+      html += `<tr><td colspan="4" style="text-align: center; padding: 20px;">
+        No purchases match your search
+      </td></tr>`;
+    }
+  }
+
+  html += "</tbody>";
+  if (table) table.innerHTML = html;
+  
+  if (totalDiv) {
+    const filterText = filter ? ` (Filtered)` : '';
+    totalDiv.innerHTML = `<h3>Total Purchases: ₹${grandTotal.toFixed(2)}${filterText}</h3>`;
+  }
+
+  // Add click event listeners to all rows
+  setTimeout(() => {
+    document.querySelectorAll('.purchase-row').forEach(row => {
+      row.addEventListener('click', function() {
+        const invoiceId = this.getAttribute('data-invoice-id');
+        showPurchaseInvoice(invoiceId);
+      });
+    });
+  }, 100);
+}
+
+// Filter purchases
+function filterPurchases() {
+  const searchBox = document.getElementById("purchasesSearch");
+  const filter = searchBox ? searchBox.value.trim() : "";
+  renderPurchasesTable(window.allPurchasesData, filter);
+}
+
+// Show purchase invoice details
+function showPurchaseInvoice(invoiceId) {
+  if (!window.allPurchasesData) {
+    alert("Purchase data not loaded. Please refresh and try again.");
+    return;
+  }
+
+  const purchase = window.allPurchasesData.find(p => p.invoiceId == invoiceId);
+  if (!purchase) {
+    alert("Purchase invoice not found!");
+    return;
+  }
+
+  // Show the invoice page with purchase details
+  showInvoicePage(
+    purchase.invoiceId,
+    purchase.date,
+    purchase.items,
+    "Purchase",
+    purchase.party,
+    purchase.total
+  );
 }
 
 // =====================
 // Enter key shortcuts
 // =====================
-document.getElementById("salePrice").addEventListener("keypress", e => { if(e.key==="Enter") addSaleItemToInvoice(); });
-document.getElementById("purchasePrice").addEventListener("keypress", e => { if(e.key==="Enter") addPurchaseItemToInvoice(); });
+const salePriceEl = document.getElementById("salePrice");
+if (salePriceEl) salePriceEl.addEventListener("keypress", e => { if (e.key === "Enter") addSaleItemToInvoice(); });
+const purchasePriceEl = document.getElementById("purchasePrice");
+if (purchasePriceEl) purchasePriceEl.addEventListener("keypress", e => { if (e.key === "Enter") addPurchaseItemToInvoice(); });
+
 // =====================
 // Keyboard Shortcuts
 // =====================
@@ -414,6 +884,7 @@ document.addEventListener("keydown", function (e) {
     }
   }
 });
+
 // =====================
 // Date Formatter
 // =====================
@@ -425,3 +896,36 @@ function formatDate(date = new Date()) {
   });
 }
 
+// =====================
+// small util: escape html
+// =====================
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+// Helper function to show errors
+function showError(message) {
+  const table = document.getElementById("purchasesTable");
+  if (table) {
+    table.innerHTML = `
+      <thead>
+        <tr><th>Date</th><th>Invoice ID</th><th>Party Name</th><th>Total Amount</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td colspan="4" style="text-align: center; color: #e74c3c; padding: 30px; background: #fdf2f2;">
+            <div style="font-size: 16px; margin-bottom: 10px;">⚠️ ${message}</div>
+            <button onclick="loadPurchases()" style="padding: 8px 16px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">
+              Try Again
+            </button>
+          </td>
+        </tr>
+      </tbody>`;
+  }
+}

@@ -66,3 +66,104 @@ tr:nth-child(even) {
 .cursor{
   cursor: pointer;
 }
+/* Purchases Page Styles */
+#purchasesTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#purchasesTable th {
+  background: #2c3e50;
+  color: white;
+  padding: 15px 12px;
+  text-align: left;
+  font-weight: 600;
+  border: none;
+}
+
+#purchasesTable td {
+  padding: 12px;
+  border-bottom: 1px solid #ecf0f1;
+  border: none;
+}
+
+#purchasesTable tr:hover {
+  background: #f8f9fa !important;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.purchase-row {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.purchase-row:last-child td {
+  border-bottom: none;
+}
+
+.controls {
+  margin: 20px 0;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.refresh-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.refresh-btn:hover {
+  background: #2980b9;
+  transform: translateY(-1px);
+}
+
+#purchasesSearch {
+  padding: 10px 15px;
+  border: 2px solid #bdc3c7;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+#purchasesSearch:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+}
+
+.back-btn {
+  background: #7f8c8d;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.back-btn:hover {
+  background: #636e72;
+  transform: translateY(-1px);
+}
+
+#purchasesGrandTotal {
+  margin-top: 25px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #27ae60;
+}

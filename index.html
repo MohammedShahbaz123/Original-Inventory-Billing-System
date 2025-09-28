@@ -13,6 +13,8 @@
     <a href="#" onclick="showPage('purchaseInvoice')">Create Purchase Invoice</a>
     <a href="#" onclick="loadInventory()">Inventory</a>
     <a href="#" onclick="loadSales()">Sales</a>
+    <a href="#" onclick="loadPurchases()">Purchase</a>
+    <a href="#" onclick="showPage('createParty')">Create Party</a>
   </div>
 
   <div class="content">
@@ -25,49 +27,68 @@
       <button onclick="addItem()" class="cursor">Add Item</button>
     </div>
 
-    <!-- ================= Sales Invoice Page ================= -->
-<div id="salesInvoice" class="page hidden">
-  <h2>Create Sales Invoice</h2>
+     <!-- ================= Create Party Page ================= -->
+  <div id="createParty" class="page hidden">
+    <h2>Create Party</h2>
+    <input type="text" id="partyName" placeholder="Party Name">
+    <button onclick="addParty()">Add Party</button>
+    <h3>All Parties</h3>
+    <ul id="partyList"></ul>
+  </div>
 
-  <label for="saleItem">Item:</label>
-  <input list="saleItemsList" id="saleItem" placeholder="Select or type item">
-  <datalist id="saleItemsList"></datalist>
+     <!-- ================= Sales Invoice Page ================= -->
+  <div id="salesInvoice" class="page hidden">
+    <h2>Create Sales Invoice</h2>
 
-  <label for="saleQty">Quantity:</label>
-  <input type="number" id="saleQty" placeholder="Enter quantity" min="1">
+    <label for="saleParty">Party:</label>
+    <select id="saleParty">
+      <option value="">-- Select Party --</option>
+    </select>
 
-  <label for="salePrice">Price:</label>
-  <input type="number" id="salePrice" placeholder="Enter price" min="0.01" step="0.01">
+    <label for="saleItem">Item:</label>
+    <input list="saleItemsList" id="saleItem" placeholder="Select or type item">
+    <datalist id="saleItemsList"></datalist>
 
-  <button onclick="addSaleItemToInvoice()">Add Item</button>
+    <label for="saleQty">Quantity:</label>
+    <input type="number" id="saleQty" placeholder="Enter quantity" min="1">
 
-  <h3>Invoice Items</h3>
-  <table id="saleInvoiceTable" width="100%" border="1"></table>
+    <label for="salePrice">Price:</label>
+    <input type="number" id="salePrice" placeholder="Enter price" min="0.01" step="0.01">
 
-  <button onclick="saveSaleInvoice()">Save Invoice</button>
-</div>
+    <button onclick="addSaleItemToInvoice()">Add Item</button>
+
+    <h3>Invoice Items</h3>
+    <table id="saleInvoiceTable" width="100%" border="1"></table>
+
+    <button onclick="saveSaleInvoice()">Save Invoice</button>
+  </div>
 
 <!-- ================= Purchase Invoice Page ================= -->
-<div id="purchaseInvoice" class="page hidden">
-  <h2>Create Purchase Invoice</h2>
+  <div id="purchaseInvoice" class="page hidden">
+    <h2>Create Purchase Invoice</h2>
 
-  <label for="purchaseItem">Item:</label>
-  <input list="purchaseItemsList" id="purchaseItem" placeholder="Select or type item">
-  <datalist id="purchaseItemsList"></datalist>
+    <label for="purchaseParty">Party:</label>
+    <select id="purchaseParty">
+      <option value="">-- Select Party --</option>
+    </select>
 
-  <label for="purchaseQty">Quantity:</label>
-  <input type="number" id="purchaseQty" placeholder="Enter quantity" min="1">
+    <label for="purchaseItem">Item:</label>
+    <input list="purchaseItemsList" id="purchaseItem" placeholder="Select or type item">
+    <datalist id="purchaseItemsList"></datalist>
 
-  <label for="purchasePrice">Price:</label>
-  <input type="number" id="purchasePrice" placeholder="Enter price" min="0.01" step="0.01">
+    <label for="purchaseQty">Quantity:</label>
+    <input type="number" id="purchaseQty" placeholder="Enter quantity" min="1">
 
-  <button onclick="addPurchaseItemToInvoice()">Add Item</button>
+    <label for="purchasePrice">Price:</label>
+    <input type="number" id="purchasePrice" placeholder="Enter price" min="0.01" step="0.01">
 
-  <h3>Invoice Items</h3>
-  <table id="purchaseInvoiceTable" width="100%" border="1"></table>
+    <button onclick="addPurchaseItemToInvoice()">Add Item</button>
 
-  <button onclick="savePurchaseInvoice()">Save Invoice</button>
-</div>
+    <h3>Invoice Items</h3>
+    <table id="purchaseInvoiceTable" width="100%" border="1"></table>
+
+    <button onclick="savePurchaseInvoice()">Save Invoice</button>
+  </div>
 
 <!-- ================= Invoice Display Page ================= -->
 <div id="invoicePage" class="page hidden">
@@ -80,6 +101,30 @@
   <h2>Sales</h2>
   <div id="salesGrandTotal" tabindex="0"></div>
   <table id="salesTable" width="100%" border="1"></table>
+</div>
+
+<!-- Purchases Page -->
+<div id="purchases" class="page hidden">
+  <div class="header">
+    <h1>Purchase Records</h1>
+  </div>
+  
+  <div class="controls">
+    <button onclick="loadPurchases()" class="refresh-btn">🔄 Refresh</button>
+    <input type="text" id="purchasesSearch" placeholder="Search by party or invoice..." 
+           style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 300px;"
+           onkeyup="filterPurchases()">
+  </div>
+  
+  <div id="purchasesTableContainer">
+    <table id="purchasesTable" border="1" width="100%" style="border-collapse: collapse;">
+      <!-- Table will be populated by JavaScript -->
+    </table>
+  </div>
+  
+  <div id="purchasesGrandTotal" style="margin-top: 20px; text-align: right; font-size: 18px; font-weight: bold;">
+    <!-- Grand total will be displayed here -->
+  </div>
 </div>
 
 <!-- ================= Inventory Page ================= -->
