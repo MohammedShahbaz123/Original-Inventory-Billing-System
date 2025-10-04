@@ -6,114 +6,606 @@
   <link rel="stylesheet" href="./Style.css">
 </head>
 <body>
-  <div class="sidebar">
-    <h2>Dashboard</h2>
-    <a href="#" onclick="showPage('createItem')">Create Item</a>
-    <a href="#" onclick="showPage('salesInvoice')">Create Sales Invoice</a>
-    <a href="#" onclick="showPage('purchaseInvoice')">Create Purchase Invoice</a>
-    <a href="#" onclick="loadInventory()">Inventory</a>
-    <a href="#" onclick="loadSales()">Sales</a>
-    <a href="#" onclick="loadPurchases()">Purchase</a>
-    <a href="#" onclick="showPage('createParty')">Create Party</a>
-  </div>
+  <header class="sidebar">
+    <h2>Inventory & Billing</h2>
+    <nav class="sidebar-menu">
+      <!-- In your sidebar -->
+<a href="#" onclick="Navigation.goToDashboard(); return false;" class="sidebar-item active" id="dashboard-nav">
+    <span class="sidebar-icon">🏠</span>Dashboard
+</a>
 
-  <div class="content">
-    <!-- Create Item -->
-    <div id="createItem" class="page hidden">
-      <h2>Create Item</h2>
-      <input type="text" id="itemName" placeholder="Item Name">
-      <input type="number" id="itemPrice" placeholder="Price">
-      <input type="number" id="itemStock" placeholder="Stock">
-      <button onclick="addItem()" class="cursor">Add Item</button>
+<a href="#" onclick="showPartyManagement(); return false;" class="sidebar-item">
+    <span class="sidebar-icon" id="parties-nav">👥</span>Parties
+</a>
+
+<a href="#" onclick="loadInventory(); return false;" class="sidebar-item">
+    <span class="sidebar-icon" id="inventory-nav">📦</span>Inventory
+</a>
+
+<a href="#" onclick="loadSales(); return false;" class="sidebar-item">
+    <span class="sidebar-icon" id="sales-nav">💰</span>Sales
+</a>
+
+<a href="#" onclick="loadPurchases(); return false;" class="sidebar-item">
+    <span class="sidebar-icon" id="purchase-nav">🛒</span>Purchases
+</a>
+    </nav>
+  </header>
+
+  <main class="content">
+    <!-- Dashboard Page -->
+        <div id="dashboard" class="page">
+            <!-- Content will be populated by dashboard.js -->
+             <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2024 Business Management System. All rights reserved.</p>
+            <div class="footer-links">
+                <span>📊 Version 1.0</span>
+                <span>🕒 Last updated: Today</span>
+            </div>
+        </div>
+    </footer> 
+        </div>
+    <!-- Party Management Page -->
+<div id="party-management" class="page hidden">
+    <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <h1 style="margin: 0;">Party Management</h1>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <button onclick="loadParties()" class="refresh-btn" style="font-size: 12px; padding: 6px 12px;">
+                🔄 Refresh
+            </button>
+        </div>
     </div>
-
-     <!-- ================= Create Party Page ================= -->
-  <div id="createParty" class="page hidden">
-    <h2>Create Party</h2>
-    <input type="text" id="partyName" placeholder="Party Name">
-    <button onclick="addParty()">Add Party</button>
-    <h3>All Parties</h3>
-    <ul id="partyList"></ul>
+    
+    <div class="controls" style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <!-- Search Bar -->
+            <input type="text" id="partiesSearch" placeholder="Search parties..." 
+                   style="padding: 10px 15px; border: 2px solid #bdc3c7; border-radius: 8px; width: 300px;"
+                   onkeyup="filterParties()">
+        </div>
+        
+        <div>
+            <!-- Create Party Button -->
+            <button onclick="showAddPartyForm(); return false;" class="create-btn">
+    + Add Party
+</button>
+        </div>
+    </div>
+    
+    <div class="page-content">
+        <div class="parties-grid" id="parties-list">
+            <!-- Parties will be loaded here as cards -->
+            <div class="parties-empty-state">
+                <div class="parties-empty-icon">👥</div>
+                <h3>Loading Parties...</h3>
+                <p>Please wait while we load your parties</p>
+            </div>
+        </div>
+    </div>
+</div>
+   <!-- Create Item Page - IMPROVED -->
+<div id="createItem" class="page hidden">
+  <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <button onclick="Navigation.goBackToPreviousPage()" class="back-arrow-btn">←</button>
+        ←
+      </button>
+      <h1 style="margin: 0;">Add New Item</h1>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button onclick="resetItemForm()" class="secondary-btn">🔄 Reset</button>
+    </div>
   </div>
-
-     <!-- ================= Sales Invoice Page ================= -->
-  <div id="salesInvoice" class="page hidden">
-    <h2>Create Sales Invoice</h2>
-
-    <label for="saleParty">Party:</label>
-    <select id="saleParty">
-      <option value="">-- Select Party --</option>
-    </select>
-
-    <label for="saleItem">Item:</label>
-    <input list="saleItemsList" id="saleItem" placeholder="Select or type item">
-    <datalist id="saleItemsList"></datalist>
-
-    <label for="saleQty">Quantity:</label>
-    <input type="number" id="saleQty" placeholder="Enter quantity" min="1">
-
-    <label for="salePrice">Price:</label>
-    <input type="number" id="salePrice" placeholder="Enter price" min="0.01" step="0.01">
-
-    <button onclick="addSaleItemToInvoice()">Add Item</button>
-
-    <h3>Invoice Items</h3>
-    <table id="saleInvoiceTable" width="100%" border="1"></table>
-
-    <button onclick="saveSaleInvoice()">Save Invoice</button>
+  
+  <div class="form-container">
+    <form id="itemForm" onsubmit="event.preventDefault(); validateAndAddItem();">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="itemName">Item Name *</label>
+          <input type="text" id="itemName" required 
+                 placeholder="Enter item name (e.g., Samsung TV, iPhone 15)"
+                 maxlength="100">
+          <div class="form-hint">Enter a descriptive name for the item</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="itemPrice">Price (₹) *</label>
+          <div class="input-with-icon">
+            <span class="input-icon">₹</span>
+            <input type="number" id="itemPrice" required min="0" step="0.01"
+                   placeholder="0.00"
+                   oninput="formatPrice(this)">
+          </div>
+          <div class="form-hint">Enter the selling price per unit</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="itemStock">Initial Stock *</label>
+          <input type="number" id="itemStock" required min="0" step="1"
+                 placeholder="0"
+                 oninput="validateStock(this)">
+          <div class="form-hint">Enter the initial quantity in stock</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="itemCategory">Category (Optional)</label>
+          <select id="itemCategory">
+            <option value="">Select Category</option>
+            <option value="electronics">Electronics</option>
+            <option value="clothing">Clothing</option>
+            <option value="furniture">Furniture</option>
+            <option value="groceries">Groceries</option>
+            <option value="books">Books</option>
+            <option value="other">Other</option>
+          </select>
+          <div class="form-hint">Categorize for better organization</div>
+        </div>
+      </div>
+      
+      <div class="form-actions">
+        <button type="button" onclick="Navigation.goBackToPreviousPage()" class="cancel-btn">Cancel</button>
+        <button type="submit" class="submit-btn">
+          <span id="itemSubmitText">➕ Add Item</span>
+          <div id="itemLoading" class="loading-spinner" style="display: none;"></div>
+        </button>
+      </div>
+    </form>
   </div>
-
-<!-- ================= Purchase Invoice Page ================= -->
-  <div id="purchaseInvoice" class="page hidden">
-    <h2>Create Purchase Invoice</h2>
-
-    <label for="purchaseParty">Party:</label>
-    <select id="purchaseParty">
-      <option value="">-- Select Party --</option>
-    </select>
-
-    <label for="purchaseItem">Item:</label>
-    <input list="purchaseItemsList" id="purchaseItem" placeholder="Select or type item">
-    <datalist id="purchaseItemsList"></datalist>
-
-    <label for="purchaseQty">Quantity:</label>
-    <input type="number" id="purchaseQty" placeholder="Enter quantity" min="1">
-
-    <label for="purchasePrice">Price:</label>
-    <input type="number" id="purchasePrice" placeholder="Enter price" min="0.01" step="0.01">
-
-    <button onclick="addPurchaseItemToInvoice()">Add Item</button>
-
-    <h3>Invoice Items</h3>
-    <table id="purchaseInvoiceTable" width="100%" border="1"></table>
-
-    <button onclick="savePurchaseInvoice()">Save Invoice</button>
+  
+  <!-- Quick Items Template -->
+  <div class="quick-templates" style="margin-top: 30px;">
+    <h3 style="color: #2c3e50; margin-bottom: 15px;">💡 Quick Add Common Items</h3>
+    <div class="template-buttons">
+      <button onclick="fillItemTemplate('Smartphone', 29999, 10)" class="template-btn">📱 Smartphone ₹29,999</button>
+      <button onclick="fillItemTemplate('Laptop', 59999, 5)" class="template-btn">💻 Laptop ₹59,999</button>
+      <button onclick="fillItemTemplate('Headphones', 2999, 20)" class="template-btn">🎧 Headphones ₹2,999</button>
+      <button onclick="fillItemTemplate('T-Shirt', 899, 50)" class="template-btn">👕 T-Shirt ₹899</button>
+    </div>
   </div>
-
-<!-- ================= Invoice Display Page ================= -->
-<div id="invoicePage" class="page hidden">
-  <!-- JS dynamically fills invoice here -->
-  <!-- Print and Download buttons appear at top-right inside JS -->
 </div>
 
-<!-- ================= Sales Table Page ================= -->
+    <!-- Create Party Page - IMPROVED -->
+<div id="createParty" class="page hidden">
+  <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <button onclick="Navigation.goBackToPreviousPage()" class="back-arrow-btn">
+        ←
+      </button>
+      <h1 style="margin: 0;">Add New Party</h1>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button onclick="resetPartyForm()" class="secondary-btn">🔄 Reset</button>
+    </div>
+  </div>
+  
+  <div class="form-container">
+    <form id="partyForm" onsubmit="event.preventDefault(); validateAndAddParty();">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="partyName">Party Name *</label>
+          <input type="text" id="partyName" required 
+                 placeholder="Enter party name (e.g., John Doe, ABC Corporation)"
+                 maxlength="100"
+                 oninput="checkPartyExists(this.value)">
+          <div id="partyExists" class="error-message" style="display: none;">⚠️ This party already exists</div>
+          <div class="form-hint">Enter customer or supplier name</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="partyType">Party Type *</label>
+          <select id="partyType" required onchange="togglePartyFields()">
+            <option value="">Select Type</option>
+            <option value="customer">Customer</option>
+            <option value="supplier">Supplier</option>
+            <option value="both">Both (Customer & Supplier)</option>
+          </select>
+          <div class="form-hint">Select the type of party</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="partyPhone">Phone Number</label>
+          <input type="tel" id="partyPhone" 
+                 placeholder="+91 98765 43210"
+                 pattern="[0-9+\s]{10,15}"
+                 oninput="formatPhone(this)">
+          <div class="form-hint">Optional phone number</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="partyEmail">Email Address</label>
+          <input type="email" id="partyEmail" 
+                 placeholder="party@example.com">
+          <div class="form-hint">Optional email address</div>
+        </div>
+        
+        <div class="form-group full-width">
+          <label for="partyAddress">Address</label>
+          <textarea id="partyAddress" rows="3" 
+                    placeholder="Enter complete address..."
+                    maxlength="200"></textarea>
+          <div class="form-hint">Optional address details</div>
+        </div>
+      </div>
+      
+      <div class="form-actions">
+        <button type="button" onclick="Navigation.goBackToPreviousPage()" class="cancel-btn">Cancel</button>
+        <button type="submit" class="submit-btn">
+          <span id="partySubmitText">👥 Add Party</span>
+          <div id="partyLoading" class="loading-spinner" style="display: none;"></div>
+        </button>
+      </div>
+    </form>
+  </div>
+  
+  <!-- Existing Parties Quick View -->
+  <div class="existing-parties" style="margin-top: 30px;">
+    <h3 style="color: #2c3e50; margin-bottom: 15px;">📋 Existing Parties</h3>
+    <div id="existingPartiesList" class="parties-list">
+      <!-- Will be populated by JavaScript -->
+    </div>
+  </div>
+</div>
+
+    <!-- Sales Invoice Page - IMPROVED -->
+<div id="salesInvoice" class="page hidden">
+  <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <button onclick="Navigation.goBackToPreviousPage()" class="back-arrow-btn">
+        ←
+      </button>
+      <h1 style="margin: 0;">Create Sale Invoice</h1>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button onclick="clearSaleInvoice()" class="secondary-btn">🗑️ Clear All</button>
+      <button onclick="saveSaleInvoice()" class="primary-btn" id="saveSaleBtn">
+        💾 Save Invoice
+      </button>
+    </div>
+  </div>
+  
+  <div class="invoice-container">
+    <!-- Invoice Header -->
+    <div class="invoice-header">
+      <div class="invoice-meta">
+        <div class="meta-group">
+          <label for="saleDate">Invoice Date *</label>
+          <input type="date" id="saleDate" required value="${new Date().toISOString().split('T')[0]}">
+        </div>
+        <div class="meta-group">
+          <label for="saleParty">Customer *</label>
+          <select id="saleParty" required>
+            <option value="">Select Customer</option>
+          </select>
+          <button type="button" onclick="showPage('createParty')" class="quick-add-btn">+ Add New</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Add Items Section -->
+    <div class="add-items-section">
+      <h3>➕ Add Items</h3>
+      <div class="item-form-grid">
+        <div class="form-group">
+          <label for="saleItem">Item *</label>
+          <input type="text" id="saleItem" list="saleItemsList" 
+                 placeholder="Search or select item"
+                 oninput="updateItemPrice()">
+          <datalist id="saleItemsList"></datalist>
+          <div id="itemStockInfo" class="stock-info" style="display: none;"></div>
+        </div>
+        
+        <div class="form-group">
+          <label for="saleQty">Quantity *</label>
+          <input type="number" id="saleQty" min="1" step="1" 
+                 placeholder="0"
+                 oninput="calculateSaleSubtotal()">
+        </div>
+        
+        <div class="form-group">
+          <label for="salePrice">Price (₹) *</label>
+          <input type="number" id="salePrice" min="0.01" step="0.01" 
+                 placeholder="0.00"
+                 oninput="calculateSaleSubtotal()">
+        </div>
+        
+        <div class="form-group">
+          <label for="saleSubtotal">Subtotal</label>
+          <input type="text" id="saleSubtotal" readonly 
+                 placeholder="0.00"
+                 style="background: #f8f9fa;">
+        </div>
+        
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button type="button" onclick="addSaleItemToInvoice()" class="add-item-btn">
+            ➕ Add to Invoice
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Items Table -->
+    <div class="items-table-section">
+      <h3>📋 Invoice Items</h3>
+      <div id="saleInvoiceTableContainer">
+        <table id="saleInvoiceTable">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Subtotal</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="saleInvoiceItems">
+            <!-- Items will be added here -->
+          </tbody>
+          <tfoot>
+            <tr class="grand-total">
+              <td colspan="3">Grand Total</td>
+              <td id="saleGrandTotal">₹0.00</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    
+    <!-- Additional Notes -->
+    <div class="notes-section">
+      <label for="saleNotes">Additional Notes (Optional)</label>
+      <textarea id="saleNotes" rows="2" placeholder="Any additional notes for this invoice..."></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Purchase Invoice Page - IMPROVED -->
+<div id="purchaseInvoice" class="page hidden">
+  <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <button onclick="Navigation.goBackToPreviousPage()" class="back-arrow-btn">
+        ←
+      </button>
+      <h1 style="margin: 0;">Create Purchase Invoice</h1>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button onclick="clearPurchaseInvoice()" class="secondary-btn">🗑️ Clear All</button>
+      <button onclick="savePurchaseInvoice()" class="primary-btn" id="savePurchaseBtn">
+        💾 Save Invoice
+      </button>
+    </div>
+  </div>
+  
+  <div class="invoice-container">
+    <!-- Invoice Header -->
+    <div class="invoice-header">
+      <div class="invoice-meta">
+        <div class="meta-group">
+          <label for="purchaseDate">Invoice Date *</label>
+          <input type="date" id="purchaseDate" required value="${new Date().toISOString().split('T')[0]}">
+        </div>
+        <div class="meta-group">
+          <label for="purchaseParty">Supplier *</label>
+          <select id="purchaseParty" required>
+            <option value="">Select Supplier</option>
+          </select>
+          <button type="button" onclick="showPage('createParty')" class="quick-add-btn">+ Add New</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Add Items Section -->
+    <div class="add-items-section">
+      <h3>➕ Add Items</h3>
+      <div class="item-form-grid">
+        <div class="form-group">
+          <label for="purchaseItem">Item *</label>
+          <input type="text" id="purchaseItem" list="purchaseItemsList" 
+                 placeholder="Search or select item"
+                 oninput="updatePurchaseItemPrice()">
+          <datalist id="purchaseItemsList"></datalist>
+          <button type="button" onclick="showPage('createItem')" class="quick-add-btn">+ New Item</button>
+        </div>
+        
+        <div class="form-group">
+          <label for="purchaseQty">Quantity *</label>
+          <input type="number" id="purchaseQty" min="1" step="1" 
+                 placeholder="0"
+                 oninput="calculatePurchaseSubtotal()">
+        </div>
+        
+        <div class="form-group">
+          <label for="purchasePrice">Price (₹) *</label>
+          <input type="number" id="purchasePrice" min="0.01" step="0.01" 
+                 placeholder="0.00"
+                 oninput="calculatePurchaseSubtotal()">
+        </div>
+        
+        <div class="form-group">
+          <label for="purchaseSubtotal">Subtotal</label>
+          <input type="text" id="purchaseSubtotal" readonly 
+                 placeholder="0.00"
+                 style="background: #f8f9fa;">
+        </div>
+        
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button type="button" onclick="addPurchaseItemToInvoice()" class="add-item-btn">
+            ➕ Add to Invoice
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Items Table -->
+    <div class="items-table-section">
+      <h3>📋 Purchase Items</h3>
+      <div id="purchaseInvoiceTableContainer">
+        <table id="purchaseInvoiceTable">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Subtotal</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="purchaseInvoiceItems">
+            <!-- Items will be added here -->
+          </tbody>
+          <tfoot>
+            <tr class="grand-total">
+              <td colspan="3">Grand Total</td>
+              <td id="purchaseGrandTotal">₹0.00</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Invoice Page -->
+<div id="invoicePage" class="page hidden">
+  <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <button onclick="Navigation.goBackToPreviousPage()" class="back-arrow-btn">
+        ←
+      </button>
+      <h1 style="margin: 0;">Invoice</h1>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">  
+      <button onclick="printInvoice()" class="print-btn">🖨️ Print</button>
+      <button onclick="downloadInvoicePDF()" class="download-btn">📥 Download</button>
+    </div>
+  </div>
+  
+  <div id="invoiceContent">
+    <!-- Invoice content will be populated by JavaScript -->
+  </div>
+</div>
+
+<!-- Sales Page -->
 <div id="sales" class="page hidden">
-  <h2>Sales</h2>
-  <div id="salesGrandTotal" tabindex="0"></div>
-  <table id="salesTable" width="100%" border="1"></table>
+  <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+      <h1 style="margin: 0;">Sales Records</h1>
+      <div id="salesGrandTotal" style="margin-top: 5px; font-size: 16px; font-weight: bold; color: #e74c3c;">
+        <!-- Total sales will be displayed here -->
+      </div>
+    </div>
+    <div>
+      <button onclick="loadSales()" class="refresh-btn" style="font-size: 12px; padding: 6px 12px;">
+        🔄 Refresh
+      </button>
+    </div>
+  </div>
+  
+  <div class="controls" style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+
+      <!-- Search Bar -->
+      <input type="text" id="salesSearch" placeholder="Search by party or invoice..." 
+             style="padding: 10px 15px; border: 2px solid #bdc3c7; border-radius: 8px; width: 300px;"
+             onkeyup="filterSales()">
+
+      <!-- Date Range Filter -->
+      <select id="salesDateRangeFilter" onchange="filterSalesByDateRange()" style="padding: 10px 15px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 14px; background: white; cursor: pointer;">
+        <option value="all">All Time</option>
+        <option value="today">Today</option>
+        <option value="yesterday">Yesterday</option>
+        <option value="thisWeek">This Week</option>
+        <option value="lastWeek">Last Week</option>
+        <option value="thisMonth">This Month</option>
+        <option value="lastMonth">Last Month</option>
+        <option value="thisYear">This Year</option>
+        <option value="lastYear">Last Year</option>
+        <option value="custom">Custom Range</option>
+      </select>
+      
+      <!-- Custom Date Range (hidden by default) -->
+      <div id="salesCustomDateRange" style="display: none; align-items: center; gap: 10px;">
+        <input type="date" id="salesCustomDateFrom" style="padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px;">
+        <span>to</span>
+        <input type="date" id="salesCustomDateTo" style="padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px;">
+        <button onclick="applySalesCustomDateRange()" style="padding: 8px 15px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Apply</button>
+      </div>
+      
+    </div>
+    
+    <div>
+      <!-- Create Sale Button -->
+      <button onclick="showPage('salesInvoice')" class="create-sale-btn">
+        + Create Sale
+      </button>
+    </div>
+  </div>
+  
+  <div id="salesTableContainer">
+    <table id="salesTable" border="1" width="100%" style="border-collapse: collapse;">
+      <!-- Table will be populated by JavaScript -->
+    </table>
+  </div>
 </div>
 
 <!-- Purchases Page -->
 <div id="purchases" class="page hidden">
-  <div class="header">
-    <h1>Purchase Records</h1>
+  <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+      <h1 style="margin: 0;">Purchase Records</h1>
+      <div id="purchasesGrandTotal" style="margin-top: 5px; font-size: 16px; font-weight: bold; color: #27ae60;">
+        <!-- Total purchase will be displayed here -->
+      </div>
+    </div>
+    <div>
+      <button onclick="loadPurchases()" class="refresh-btn" style="font-size: 12px; padding: 6px 12px;">
+        🔄 Refresh
+      </button>
+    </div>
   </div>
   
-  <div class="controls">
-    <button onclick="loadPurchases()" class="refresh-btn">🔄 Refresh</button>
-    <input type="text" id="purchasesSearch" placeholder="Search by party or invoice..." 
-           style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 300px;"
-           onkeyup="filterPurchases()">
+  <div class="controls" style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <!-- Search Bar -->
+      <input type="text" id="purchasesSearch" placeholder="Search by party or invoice..." 
+             style="padding: 10px 15px; border: 2px solid #bdc3c7; border-radius: 8px; width: 300px;"
+             onkeyup="filterPurchases()">
+      <!-- Date Range Filter -->
+      <select id="dateRangeFilter" onchange="filterByDateRange()" style="padding: 10px 15px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 14px; background: white; cursor: pointer;">
+        <option value="all">All Time</option>
+        <option value="today">Today</option>
+        <option value="yesterday">Yesterday</option>
+        <option value="thisWeek">This Week</option>
+        <option value="lastWeek">Last Week</option>
+        <option value="thisMonth">This Month</option>
+        <option value="lastMonth">Last Month</option>
+        <option value="thisYear">This Year</option>
+        <option value="lastYear">Last Year</option>
+        <option value="custom">Custom Range</option>
+      </select>
+      
+      <!-- Custom Date Range (hidden by default) -->
+      <div id="customDateRange" style="display: none; align-items: center; gap: 10px;">
+        <input type="date" id="customDateFrom" style="padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px;">
+        <span>to</span>
+        <input type="date" id="customDateTo" style="padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px;">
+        <button onclick="applyCustomDateRange()" style="padding: 8px 15px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Apply</button>
+      </div>
+      
+    </div>
+    
+    <div>
+      <!-- Create Purchase Button -->
+      <button onclick="showPage('purchaseInvoice')" class="create-btn">
+        + Create Purchase
+      </button>
+    </div>
   </div>
   
   <div id="purchasesTableContainer">
@@ -121,18 +613,56 @@
       <!-- Table will be populated by JavaScript -->
     </table>
   </div>
-  
-  <div id="purchasesGrandTotal" style="margin-top: 20px; text-align: right; font-size: 18px; font-weight: bold;">
-    <!-- Grand total will be displayed here -->
-  </div>
 </div>
-
-<!-- ================= Inventory Page ================= -->
+<!-- Inventory Page -->
 <div id="inventory" class="page hidden">
-  <h2>Inventory</h2>
-  <table id="inventoryTable" width="100%" border="1"></table>
-</div>
+  <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+      <h1 style="margin: 0;">Inventory</h1>
+      <div id="inventorySummary" style="margin-top: 5px; font-size: 16px; color: #7f8c8d;">
+        <!-- Inventory summary will be displayed here -->
+      </div>
+    </div>
+    <div>
+      <button onclick="loadInventory()" class="refresh-btn" style="font-size: 12px; padding: 6px 12px;">
+        🔄 Refresh
+      </button>
+    </div>
+  </div>
+  
+  <div class="controls" style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <!-- Search Bar -->
+      <input type="text" id="inventorySearch" placeholder="Search by item name..." 
+             style="padding: 10px 15px; border: 2px solid #bdc3c7; border-radius: 8px; width: 300px;"
+             onkeyup="filterInventory()">
+    </div>
+    
+    <div>
+      <!-- Create Item Button -->
+      <button onclick="showPage('createItem')" class="create-item-btn">
+        + Add Item
+      </button>
+    </div>
+  </div>
+  
+  <div id="inventoryTableContainer">
+    <table id="inventoryTable" border="1" width="100%" style="border-collapse: collapse;">
+      <!-- Table will be populated by JavaScript -->
+    </table>
+  </div>
+</main>
 
-  <script src="./Script.js"></script>
+   <!-- Core scripts first -->
+    <script src="js/utils.js"></script>
+    <script src="js/main.js"></script>
+    
+    <!-- Feature-specific scripts -->
+    <script src="js/parties.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/sales.js"></script>
+    <script src="js/purchases.js"></script>
+    <script src="js/invoices.js"></script>
+    <script src="js/dashboard.js"></script>
 </body>
 </html>
