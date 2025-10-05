@@ -1,639 +1,543 @@
-// =====================
-// CORRECTED PARTIES MANAGEMENT
-// =====================
+// Parties management
+let allParties = [];
 
-// Global variables
-window.allParties = [];
-let currentEditingParty = null;
-
-// Initialize parties management
-function initializeParties() {
-    console.log("🎯 Initializing parties management...");
-    loadParties();
-}
-
-function showPartyManagement() {
-    console.log("🎯 showPartyManagement() called");
-    
-    // Show the page first
-    Navigation.showPage('party-management');
-    console.log("✅ Party management page shown");
-    // CORRECTED: Force reload parties to ensure fresh data
-    loadParties();
-}
-
-// Load all parties
 async function loadParties() {
-    console.log("🎯 loadParties() called");
-    
     try {
-        UIUtils.showLoading();
-        const result = await UniversalCORSHandler.callAPI('getParties');
-        
-        if (result.success && result.parties) {
-            // CORRECTED: Completely replace the array, don't mutate
-            window.allParties = [...result.parties];
-            displayParties(window.allParties);
-            UIUtils.showNotification('Parties loaded successfully', 'success');
-            console.log("✅ Parties loaded:", window.allParties.length);
-        } else {
-            console.error("❌ No parties data in response:", result);
-            window.allParties = [];
-            displayParties([]);
-            UIUtils.showNotification('No parties data received', 'warning');
-        }
+        const partiesList = document.getElementById('parties-list');
+        partiesList.innerHTML = `
+            <div class="parties-empty-state">
+                <div class="parties-empty-icon">⏳</div>
+                <h3>Loading Parties...</h3>
+                <p>Please wait while we load your parties</p>
+            </div>
+        `;
+
+        allParties = await SupabaseService.getParties();
+        displayParties(allParties);
     } catch (error) {
-        console.error("💥 Error loading parties:", error);
-        UIUtils.showNotification('Error loading parties: ' + error.message, 'error');
-        window.allParties = [];
-        displayParties([]);
-    } finally {
-        UIUtils.hideLoading();
+        console.error('Error loading parties:', error);
     }
 }
 
-// Display parties as cards
 function displayParties(parties) {
-    console.log("🎯 displayParties() called with", parties.length, "parties:", parties);
+    const partiesList = document.getElementById('parties-list');
     
-    const partiesContainer = document.getElementById('parties-list');
-    if (!partiesContainer) {
-        console.error("❌ parties-list element not found!");
-        return;
-    }
-    
-    console.log("✅ parties-list element found");
-    
-    if (!parties || parties.length === 0) {
-        partiesContainer.innerHTML = `
+    if (parties.length === 0) {
+        partiesList.innerHTML = `
             <div class="parties-empty-state">
                 <div class="parties-empty-icon">👥</div>
                 <h3>No Parties Found</h3>
-                <p>Get started by adding your first customer or supplier</p>
-                <button onclick="showAddPartyForm()" class="create-btn" style="margin-top: 20px;">
-                    + Add Your First Party
-                </button>
+                <p>Get started by adding your first party</p>
+                <button onclick="showAddPartyForm()" class="create-btn">+ Add Party</button>
             </div>
         `;
         return;
     }
-    
-    // CORRECTED: Use proper array mapping with all data
-    partiesContainer.innerHTML = parties.map((party) => {
-        // CORRECTED: Ensure we're using the actual party object properties
-        const partyName = party.name || '';
-        const partyType = party.type || '';
-        const partyPhone = party.phone || '';
-        const partyEmail = party.email || '';
-        const partyAddress = party.address || '';
-        
-        console.log("🎯 Rendering party:", { partyName, partyType, partyPhone, partyEmail, partyAddress });
-        
-        return `
-        <div class="party-card" data-party-name="${Security.escapeHtml(partyName)}">
+
+    partiesList.innerHTML = parties.map(party => `
+        <div class="party-card" data-party-id="${party.id}">
             <div class="party-header">
-                <h3 class="party-name">${Security.escapeHtml(partyName)}</h3>
-                <span class="party-type-badge ${partyType}">
-                    ${getPartyTypeBadge(partyType)} 
-                </span>
+                <h3 class="party-name">${party.name}</h3>
+                <span class="party-type-badge party-type-${party.type}">${getPartyTypeLabel(party.type)}</span>
             </div>
             
             <div class="party-details">
-                ${partyPhone ? `
-                    <div class="party-detail">
-                        <span class="party-detail-icon">📞</span>
-                        <span>${Security.escapeHtml(partyPhone)}</span>
-                    </div>
-                ` : ''}
-                
-                ${partyEmail ? `
-                    <div class="party-detail">
-                        <span class="party-detail-icon">📧</span>
-                        <span>${Security.escapeHtml(partyEmail)}</span>
-                    </div>
-                ` : ''}
-                
-                ${partyAddress ? `
-                    <div class="party-address">
-                        <span class="party-detail-icon">🏠</span>
-                        <span>${Security.escapeHtml(partyAddress)}</span>
-                    </div>
-                ` : ''}
+                ${party.phone ? `<div class="party-detail"><span class="detail-icon">📞</span> ${party.phone}</div>` : ''}
+                ${party.email ? `<div class="party-detail"><span class="detail-icon">📧</span> ${party.email}</div>` : ''}
+                ${party.address ? `<div class="party-detail"><span class="detail-icon">📍</span> ${party.address}</div>` : ''}
             </div>
             
             <div class="party-actions">
-                <button class="party-action-btn party-edit-btn" 
-                        onclick="editParty('${Security.escapeHtml(partyName)}')">
-                    ✏️ Edit
-                </button>
-                <button class="party-action-btn party-delete-btn" 
-                        onclick="deleteParty('${Security.escapeHtml(partyName)}')">
-                    🗑️ Delete
-                </button>
+                <button onclick="editParty('${party.id}')" class="action-btn edit-btn">✏️ Edit</button>
+                <button onclick="deleteParty('${party.id}')" class="action-btn delete-btn">🗑️ Delete</button>
             </div>
         </div>
-        `;
-    }).join('');
-    
-    console.log(`✅ Displayed ${parties.length} parties as cards`);
+    `).join('');
 }
 
-// Get party type badge
-function getPartyTypeBadge(type) {
-    const badges = {
-        'customer': '👤 Customer',
-        'supplier': '🏭 Supplier', 
-        'both': '🤝 Both'
+function getPartyTypeLabel(type) {
+    const types = {
+        'customer': 'Customer',
+        'supplier': 'Supplier',
+        'both': 'Customer & Supplier'
     };
-    return badges[type] || '❓ Not Set'; // Show "Not Set" if type is empty
+    return types[type] || type;
 }
 
-// Show add party form
 function showAddPartyForm() {
-    console.log("🎯 showAddPartyForm() called");
-    currentEditingParty = null;
-    resetPartyForm();
     Navigation.showPage('createParty');
     loadExistingPartiesList();
 }
 
-// Reset party form
 function resetPartyForm() {
-    console.log("🎯 resetPartyForm() called");
-    
-    document.getElementById('partyName').value = '';
-    document.getElementById('partyType').value = ''; // EMPTY instead of default
-    document.getElementById('partyPhone').value = '';
-    document.getElementById('partyEmail').value = '';
-    document.getElementById('partyAddress').value = '';
-    
+    document.getElementById('partyForm').reset();
     document.getElementById('partyExists').style.display = 'none';
-    document.getElementById('partySubmitText').textContent = '👥 Add Party';
-    
-    togglePartyFields();
 }
 
-// Toggle party fields based on type
 function togglePartyFields() {
-    const partyType = document.getElementById('partyType').value;
-    console.log("🎯 togglePartyFields() - Party type:", partyType);
-    
-    // You can add specific field toggling logic here if needed
+    // Additional field logic can be added here if needed
 }
 
-// Check if party already exists
-function checkPartyExists(partyName) {
-    if (!partyName || partyName.length < 2) {
-        document.getElementById('partyExists').style.display = 'none';
-        return;
-    }
-    
-    const exists = allParties.some(party => 
-        (party.name || party).toLowerCase() === partyName.toLowerCase()
-    );
-    
-    const existsElement = document.getElementById('partyExists');
-    if (exists) {
-        existsElement.style.display = 'block';
-        existsElement.textContent = '⚠️ This party already exists';
-        existsElement.style.color = '#e74c3c';
-    } else {
-        existsElement.style.display = 'none';
-    }
-}
-
-// Format phone number
+// Indian phone number formatting and validation
 function formatPhone(input) {
+    // Get current cursor position
+    const cursorPosition = input.selectionStart;
+    
+    // Remove all non-digit characters
     let value = input.value.replace(/\D/g, '');
     
-    if (value.length > 0) {
-        if (value.length <= 3) {
-            value = value;
-        } else if (value.length <= 6) {
-            value = value.slice(0, 3) + ' ' + value.slice(3);
-        } else if (value.length <= 10) {
-            value = value.slice(0, 3) + ' ' + value.slice(3, 6) + ' ' + value.slice(6);
-        } else {
-            value = value.slice(0, 3) + ' ' + value.slice(3, 6) + ' ' + value.slice(6, 10);
-        }
+    // Format as Indian mobile number
+    let formattedValue = '';
+    if (value.length <= 5) {
+        formattedValue = value;
+    } else if (value.length <= 10) {
+        formattedValue = value.substring(0, 5) + ' ' + value.substring(5);
+    } else {
+        // Limit to 10 digits for Indian numbers
+        formattedValue = value.substring(0, 5) + ' ' + value.substring(5, 10);
     }
     
-    input.value = value;
+    input.value = formattedValue;
+    
+    // Restore cursor position approximately
+    setTimeout(() => {
+        input.setSelectionRange(cursorPosition, cursorPosition);
+    }, 0);
+    
+    // Add visual validation feedback
+    validatePhoneInput(input);
 }
 
-// Validate and add party - CORRECTED
-async function validateAndAddParty() {
-    console.log("🎯 validateAndAddParty() called");
+function validatePhoneInput(input) {
+    const phone = input.value.replace(/\s/g, ''); // Remove spaces for validation
+    const errorElement = input.parentNode.querySelector('.phone-error');
     
-    const partyName = document.getElementById('partyName').value.trim();
-    const partyType = document.getElementById('partyType').value;
-    const partyPhone = document.getElementById('partyPhone').value.trim();
-    const partyEmail = document.getElementById('partyEmail').value.trim();
-    const partyAddress = document.getElementById('partyAddress').value.trim();
-    
-    // VALIDATION - CORRECTED: Require type
-    if (!partyName) {
-        UIUtils.showNotification('Please enter party name', 'error');
-        document.getElementById('partyName').focus();
-        return;
+    if (phone === '') {
+        // Empty phone is allowed (optional field)
+        input.style.borderColor = '#e9ecef';
+        if (errorElement) errorElement.style.display = 'none';
+        return true;
     }
     
-    if (!partyType) {
-        UIUtils.showNotification('Please select party type', 'error');
-        document.getElementById('partyType').focus();
-        return;
+    const isValid = validateIndianPhoneNumber(phone);
+    
+    if (isValid) {
+        input.style.borderColor = '#28a745';
+        if (errorElement) errorElement.style.display = 'none';
+    } else {
+        input.style.borderColor = '#dc3545';
+        if (errorElement) errorElement.style.display = 'block';
     }
     
-    if (partyEmail && !Validator.validateEmail(partyEmail)) {
-        UIUtils.showNotification('Please enter a valid email address', 'error');
-        document.getElementById('partyEmail').focus();
-        return;
-    }
-    
-    if (partyPhone && !Validator.validatePhone(partyPhone)) {
-        UIUtils.showNotification('Please enter a valid phone number', 'error');
-        document.getElementById('partyPhone').focus();
-        return;
-    }
-    
-    // Check if party already exists (for new parties)
-    if (!currentEditingParty) {
-        const exists = allParties.some(party => 
-            (party.name || party).toLowerCase() === partyName.toLowerCase()
-        );
-        
-        if (exists) {
-            UIUtils.showNotification('Party with this name already exists', 'error');
-            document.getElementById('partyName').focus();
-            return;
-        }
-    }
-    
-    await saveParty(partyName, partyType, partyPhone, partyEmail, partyAddress);
+    return isValid;
 }
 
-// Save party to database - CORRECTED
-async function saveParty(name, type, phone, email, address) {
-    console.log("🎯 saveParty() called:", { name, type, phone, email, address });
+function validateIndianPhoneNumber(phone) {
+    if (!phone) return true; // Empty is allowed
     
-    try {
-        UIUtils.showLoading();
-        
-        const submitText = document.getElementById('partySubmitText');
-        const loadingSpinner = document.getElementById('partyLoading');
-        
-        submitText.textContent = 'Saving...';
-        loadingSpinner.style.display = 'inline-block';
-        
-        const partyData = {
-            name: name,
-            type: type,
-            phone: phone || '',
-            email: email || '',
-            address: address || ''
-        };
-        
-        console.log("🔄 Sending party data to API:", partyData);
-        
-        let result;
-        if (currentEditingParty) {
-            // Update existing party
-            console.log("🔄 Updating party:", currentEditingParty, "to:", name);
-            result = await UniversalCORSHandler.callAPI('updateParty', {
-                oldName: currentEditingParty,
-                newName: name,
-                type: type,
-                phone: phone || '',
-                email: email || '',
-                address: address || ''
-            });
-        } else {
-            // Add new party
-            console.log("➕ Adding new party");
-            result = await UniversalCORSHandler.callAPI('addParty', partyData);
-        }
-        
-        console.log("💾 API Response:", result);
-        
-        if (result.success) {
-            const successMessage = currentEditingParty ? 
-                `Party "${name}" updated successfully` : 
-                `Party "${name}" added successfully`;
-                
-            UIUtils.showNotification(successMessage, 'success');
-            console.log("✅ Party saved successfully");
-            
-            // CORRECTED: Force reload parties from server to get fresh data
-            await loadParties(); // This will refresh the entire list
-            
-            // Go back to parties management page
-            setTimeout(() => {
-                Navigation.showPage('party-management');
-                // CORRECTED: Ensure display is updated
-                displayParties(window.allParties);
-            }, 500);
-            
-        } else {
-            console.error("❌ API returned error:", result.error);
-            throw new Error(result.error || `Failed to ${currentEditingParty ? 'update' : 'add'} party`);
-        }
-        
-    } catch (error) {
-        console.error("💥 Error saving party:", error);
-        UIUtils.showNotification('Error saving party: ' + error.message, 'error');
-    } finally {
-        UIUtils.hideLoading();
-        
-        const submitText = document.getElementById('partySubmitText');
-        const loadingSpinner = document.getElementById('partyLoading');
-        
-        submitText.textContent = currentEditingParty ? 'Update Party' : 'Add Party';
-        loadingSpinner.style.display = 'none';
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    // Indian mobile numbers must be 10 digits and start with 6,7,8,9
+    if (cleanPhone.length !== 10) {
+        return false;
     }
+    
+    // Must start with 6,7,8,9 for Indian mobile numbers
+    if (!/^[6-9]/.test(cleanPhone)) {
+        return false;
+    }
+    
+    // Check if it's a valid Indian mobile number pattern
+    return /^[6-9]\d{9}$/.test(cleanPhone);
 }
 
-// Edit party - CORRECTED
-async function editParty(partyName) {
-    console.log("🎯 editParty() called:", partyName);
-    
-    try {
-        UIUtils.showLoading();
-        
-        // Find the party in our local list
-        const party = allParties.find(p => {
-            const pName = p.name || p;
-            return pName === partyName;
-        });
-        
-        if (!party) {
-            throw new Error(`Party "${partyName}" not found in local data`);
-        }
-        
-        console.log("📝 Editing party data:", party);
-        
-        currentEditingParty = partyName;
-        
-        // Fill the form with ALL party data - CORRECTED: Don't default type
-        document.getElementById('partyName').value = party.name || party;
-        document.getElementById('partyType').value = party.type || ''; // EMPTY if no type
-        document.getElementById('partyPhone').value = party.phone || '';
-        document.getElementById('partyEmail').value = party.email || '';
-        document.getElementById('partyAddress').value = party.address || '';
-        
-        document.getElementById('partySubmitText').textContent = 'Update Party';
-        document.getElementById('partyExists').style.display = 'none';
-        
-        togglePartyFields();
-        
-        // Show the create party page
-        Navigation.showPage('createParty');
-        loadExistingPartiesList();
-        
-        UIUtils.showNotification('Editing party: ' + partyName, 'info');
-        
-    } catch (error) {
-        console.error("💥 Error editing party:", error);
-        UIUtils.showNotification('Error editing party: ' + error.message, 'error');
-    } finally {
-        UIUtils.hideLoading();
+function getPhoneValidationMessage(phone) {
+    if (!phone || phone.trim() === '') {
+        return { isValid: true, message: '' };
     }
+    
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    if (cleanPhone.length !== 10) {
+        return { isValid: false, message: 'Phone number must be 10 digits' };
+    }
+    
+    if (!/^[6-9]/.test(cleanPhone)) {
+        return { isValid: false, message: 'Indian mobile numbers must start with 6,7,8, or 9' };
+    }
+    
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+        return { isValid: false, message: 'Please enter a valid Indian mobile number' };
+    }
+    
+    return { isValid: true, message: '' };
 }
 
-// Delete party - CORRECTED with better error handling for CORS issues
-async function deleteParty(partyName) {
-    console.log("🎯 deleteParty() called with:", partyName);
+async function checkPartyExists(partyName) {
+    if (partyName.length < 2) return;
     
-    if (!partyName) {
-        console.error("❌ Party name is undefined!");
-        UIUtils.showNotification('Error: Party name is missing', 'error');
-        return;
-    }
+    const exists = allParties.some(party => 
+        party.name.toLowerCase() === partyName.toLowerCase()
+    );
     
-    if (!confirm(`Are you sure you want to delete "${partyName}"?\n\nThis action cannot be undone and will remove this party from all records.`)) {
-        console.log("❌ Delete cancelled by user");
-        return;
-    }
-    
-    try {
-        UIUtils.showLoading();
-        
-        console.log("🗑️ Deleting party:", partyName);
-        
-        const result = await UniversalCORSHandler.callAPI('deleteParty', { 
-            name: partyName
-        });
-        
-        console.log("✅ Delete party response:", result);
-        
-        if (result.success) {
-            UIUtils.showNotification(`Party "${partyName}" deleted successfully`, 'success');
-            
-            // CORRECTED: Remove from local array immediately as fallback
-            const partyIndex = window.allParties.findIndex(party => {
-                const pName = typeof party === 'object' ? party.name : party;
-                return pName === partyName;
-            });
-            
-            if (partyIndex !== -1) {
-                window.allParties.splice(partyIndex, 1);
-                console.log("✅ Removed party from local array");
-            }
-            
-            // Try to refresh from server, but if it fails, use local array
-            try {
-                await loadParties();
-            } catch (refreshError) {
-                console.warn("⚠️ Could not refresh from server, using local data:", refreshError);
-                displayParties(window.allParties);
-                UIUtils.showNotification('Deleted locally - refresh page to sync fully', 'info');
-            }
-            
-        } else {
-            throw new Error(result.error || 'Failed to delete party');
-        }
-        
-    } catch (error) {
-        console.error("💥 Error deleting party:", error);
-        UIUtils.showNotification('Error deleting party: ' + error.message, 'error');
-    } finally {
-        UIUtils.hideLoading();
-    }
+    document.getElementById('partyExists').style.display = exists ? 'block' : 'none';
 }
 
-// Load existing parties list for quick view
-function loadExistingPartiesList() {
-    console.log("🎯 loadExistingPartiesList() called");
-    
+async function loadExistingPartiesList() {
     const existingPartiesList = document.getElementById('existingPartiesList');
-    if (!existingPartiesList) {
-        console.log("ℹ️ existingPartiesList element not found");
+    const parties = await SupabaseService.getParties();
+    
+    if (parties.length === 0) {
+        existingPartiesList.innerHTML = '<p class="no-parties">No parties added yet</p>';
         return;
     }
-    
-    if (!allParties || allParties.length === 0) {
-        existingPartiesList.innerHTML = `
-            <div class="no-parties" style="text-align: center; padding: 20px; color: #7f8c8d;">
-                No parties added yet
-            </div>
-        `;
-        return;
-    }
-    
-    // Show only top 5 parties for quick reference
-    const displayParties = allParties.slice(0, 5);
-    
-    existingPartiesList.innerHTML = displayParties.map(party => `
-        <div class="party-quick-item">
-            <div class="party-quick-name">
-                <strong>${Security.escapeHtml(party.name || party)}</strong>
-                <span class="party-quick-type ${party.type || 'not-set'}">
-                    ${getPartyTypeBadge(party.type || '')}
-                </span>
-            </div>
-            ${party.phone ? `<div class="party-quick-detail">📞 ${Security.escapeHtml(party.phone)}</div>` : ''}
+
+    existingPartiesList.innerHTML = parties.slice(0, 5).map(party => `
+        <div class="existing-party-item">
+            <strong>${party.name}</strong>
+            <span class="party-type-small ${party.type}">${getPartyTypeLabel(party.type)}</span>
         </div>
     `).join('');
-    
-    if (allParties.length > 5) {
-        existingPartiesList.innerHTML += `
-            <div class="more-parties" style="text-align: center; padding: 10px; color: #3498db;">
-                + ${allParties.length - 5} more parties...
-            </div>
-        `;
-    }
 }
 
-// Filter parties based on search input
-function filterParties() {
-    const searchInput = document.getElementById('partiesSearch');
-    if (!searchInput) {
-        console.error("❌ partiesSearch element not found");
-        return;
-    }
+// Form submission
+// Form submission - Update the existing handler
+document.getElementById('partyForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
     
-    const searchTerm = searchInput.value.toLowerCase().trim();
-    console.log("🎯 Filtering parties with search term:", searchTerm);
-    
-    if (!window.allParties || window.allParties.length === 0) {
-        console.log("ℹ️ No parties to filter");
-        return;
-    }
-    
-    let filteredParties;
-    
-    if (searchTerm === '') {
-        // Show all parties if search is empty
-        filteredParties = window.allParties;
-    } else {
-        // Filter parties based on search term
-        filteredParties = window.allParties.filter(party => {
-            const partyName = (party.name || party).toLowerCase();
-            const partyType = (party.type || '').toLowerCase();
-            const partyPhone = (party.phone || '').toLowerCase();
-            const partyEmail = (party.email || '').toLowerCase();
-            const partyAddress = (party.address || '').toLowerCase();
+    const submitBtn = document.getElementById('partySubmitText').closest('button');
+    Utils.showLoading(submitBtn);
+
+    try {
+        const phone = document.getElementById('partyPhone').value.trim();
+        
+        // Validate phone number
+        const phoneValidation = getPhoneValidationMessage(phone);
+        if (!phoneValidation.isValid) {
+            Utils.showNotification(phoneValidation.message, 'warning');
+            Utils.hideLoading(submitBtn);
             
-            return partyName.includes(searchTerm) || 
-                   partyType.includes(searchTerm) ||
-                   partyPhone.includes(searchTerm) || 
-                   partyEmail.includes(searchTerm) ||
-                   partyAddress.includes(searchTerm);
-        });
+            // Highlight the phone input
+            const phoneInput = document.getElementById('partyPhone');
+            phoneInput.style.borderColor = '#dc3545';
+            phoneInput.focus();
+            return;
+        }
+
+        const partyData = {
+            name: document.getElementById('partyName').value.trim(),
+            type: document.getElementById('partyType').value,
+            phone: phone ? phone.replace(/\s/g, '') : null, // Remove spaces before storing
+            email: document.getElementById('partyEmail').value.trim() || null,
+            address: document.getElementById('partyAddress').value.trim() || null,
+            created_at: new Date().toISOString()
+        };
+
+        // Check if party already exists
+        const existingParty = allParties.find(party => 
+            party.name.toLowerCase() === partyData.name.toLowerCase()
+        );
+
+        if (existingParty) {
+            Utils.showNotification('Party with this name already exists', 'warning');
+            Utils.hideLoading(submitBtn);
+            return;
+        }
+
+        await SupabaseService.createParty(partyData);
+        resetPartyForm();
+        Navigation.showPage('party-management');
+        
+    } catch (error) {
+        console.error('Error creating party:', error);
+    } finally {
+        Utils.hideLoading(submitBtn);
     }
-    
-    console.log(`🔍 Displaying ${filteredParties.length} filtered parties out of ${window.allParties.length} total`);
+});
+
+function filterParties() {
+    const searchTerm = document.getElementById('partiesSearch').value.toLowerCase();
+    const filteredParties = allParties.filter(party => 
+        party.name.toLowerCase().includes(searchTerm) ||
+        (party.phone && party.phone.includes(searchTerm)) ||
+        (party.email && party.email.toLowerCase().includes(searchTerm)) ||
+        (party.type && party.type.toLowerCase().includes(searchTerm)) ||
+        (party.address && party.address.toLowerCase().includes(searchTerm))
+    );
     displayParties(filteredParties);
 }
 
-// Clear search and show all parties
-function clearPartySearch() {
-    const searchInput = document.getElementById('partiesSearch');
-    if (searchInput) {
-        searchInput.value = '';
-        filterParties(); // This will show all parties
+// Edit party functionality
+let editingPartyId = null;
+
+function editParty(partyId) {
+    const party = allParties.find(p => p.id === partyId);
+    if (party) {
+        editingPartyId = partyId;
+        showEditPartyPage(party);
     }
 }
 
-// Initialize search functionality
-function initializePartySearch() {
-    const searchInput = document.getElementById('partiesSearch');
-    if (searchInput) {
-        // Add event listener for real-time search
-        searchInput.addEventListener('input', filterParties);
-        searchInput.addEventListener('keyup', function(event) {
-            if (event.key === 'Escape') {
-                clearPartySearch();
-            }
-        });
-        console.log("✅ Party search initialized");
+function showEditPartyPage(party) {
+    // Format existing phone number for display
+    let formattedPhone = '';
+    if (party.phone) {
+        const cleanPhone = party.phone.replace(/\D/g, '');
+        if (cleanPhone.length === 10) {
+            formattedPhone = cleanPhone.substring(0, 5) + ' ' + cleanPhone.substring(5);
+        } else {
+            formattedPhone = party.phone;
+        }
     }
-}
 
-// Get parties for dropdowns (used in sales/purchases)
-async function getPartiesForDropdown(partyType = null) {
-    console.log("🎯 getPartiesForDropdown() called, type:", partyType);
+    const editPageHTML = `
+        <div class="page" id="editPartyPage">
+            <div class="header">
+                <div class="header-left">
+                    <button onclick="closeEditPartyPage()" class="back-arrow-btn">←</button>
+                    <h1>Edit Party</h1>
+                </div>
+                <div class="header-right">
+                    <button onclick="resetEditPartyForm()" class="secondary-btn">🔄 Reset</button>
+                </div>
+            </div>
+            
+            <div class="form-container">
+                <form id="editPartyForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="editPartyName">Party Name *</label>
+                            <input type="text" id="editPartyName" required 
+                                   value="${escapeHtml(party.name)}"
+                                   placeholder="Enter party name"
+                                   maxlength="100" oninput="checkEditPartyExists(this.value)">
+                            <div id="editPartyExists" class="error-message" style="display: none;">⚠️ This party already exists</div>
+                            <div class="form-hint">Enter customer or supplier name</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editPartyType">Party Type *</label>
+                            <select id="editPartyType" required onchange="toggleEditPartyFields()">
+                                <option value="">Select Type</option>
+                                <option value="customer" ${party.type === 'customer' ? 'selected' : ''}>Customer</option>
+                                <option value="supplier" ${party.type === 'supplier' ? 'selected' : ''}>Supplier</option>
+                                <option value="both" ${party.type === 'both' ? 'selected' : ''}>Both (Customer & Supplier)</option>
+                            </select>
+                            <div class="form-hint">Select the type of party</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editPartyPhone">Phone Number</label>
+                            <input type="tel" id="editPartyPhone" 
+                                   value="${escapeHtml(formattedPhone)}"
+                                   placeholder="98765 43210"
+                                   oninput="formatPhone(this)"
+                                   onblur="validatePhoneInput(this)">
+                            <div class="phone-error error-message" style="display: none;">
+                                ⚠️ Please enter a valid 10-digit Indian mobile number starting with 6,7,8,9
+                            </div>
+                            <div class="form-hint">Optional 10-digit Indian mobile number</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editPartyEmail">Email Address</label>
+                            <input type="email" id="editPartyEmail" 
+                                   value="${escapeHtml(party.email || '')}"
+                                   placeholder="party@example.com">
+                            <div class="form-hint">Optional email address</div>
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <label for="editPartyAddress">Address</label>
+                            <textarea id="editPartyAddress" rows="3" 
+                                      placeholder="Enter complete address..."
+                                      maxlength="200">${escapeHtml(party.address || '')}</textarea>
+                            <div class="form-hint">Optional address details</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" onclick="closeEditPartyPage()" class="cancel-btn">Cancel</button>
+                        <button type="submit" class="submit-btn">
+                            <span id="editPartySubmitText">💾 Update Party</span>
+                            <div id="editPartyLoading" class="loading-spinner" style="display: none;"></div>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="danger-zone">
+                <h3>⚠️ Danger Zone</h3>
+                <div class="danger-actions">
+                    <button onclick="deletePartyFromEdit('${party.id}')" class="danger-btn">
+                        🗑️ Delete Party
+                    </button>
+                    <p class="danger-warning">This action cannot be undone. All associated transactions will be affected.</p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // ... rest of the function remains the same
+    // Hide all current pages
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.add('hidden');
+    });
+
+    // Create and append the edit page
+    const editPageContainer = document.createElement('div');
+    editPageContainer.innerHTML = editPageHTML;
+    document.querySelector('main.content').appendChild(editPageContainer.firstElementChild);
+
+    // Add form submission handler
+    document.getElementById('editPartyForm').addEventListener('submit', handleEditPartySubmit);
     
+    // Validate existing phone number on load
+    const phoneInput = document.getElementById('editPartyPhone');
+    if (phoneInput) {
+        validatePhoneInput(phoneInput);
+    }
+}
+
+// Helper function to escape HTML
+function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function closeEditPartyPage() {
+    const editPage = document.getElementById('editPartyPage');
+    if (editPage) {
+        editPage.remove();
+    }
+    editingPartyId = null;
+    
+    // Show the party management page
+    Navigation.showPage('party-management');
+}
+
+function resetEditPartyForm() {
+    const party = allParties.find(p => p.id === editingPartyId);
+    if (party) {
+        document.getElementById('editPartyName').value = party.name;
+        document.getElementById('editPartyType').value = party.type;
+        document.getElementById('editPartyPhone').value = party.phone || '';
+        document.getElementById('editPartyEmail').value = party.email || '';
+        document.getElementById('editPartyAddress').value = party.address || '';
+        document.getElementById('editPartyExists').style.display = 'none';
+    }
+}
+
+function toggleEditPartyFields() {
+    // Additional field logic can be added here if needed
+}
+
+function checkEditPartyExists(partyName) {
+    if (partyName.length < 2) return;
+    
+    const exists = allParties.some(party => 
+        party.name.toLowerCase() === partyName.toLowerCase() && 
+        party.id !== editingPartyId
+    );
+    
+    document.getElementById('editPartyExists').style.display = exists ? 'block' : 'none';
+}
+
+async function handleEditPartySubmit(e) {
+    e.preventDefault();
+    
+    const submitBtn = document.getElementById('editPartySubmitText').closest('button');
+    Utils.showLoading(submitBtn);
+
     try {
-        // If we already have parties loaded, use them
-        if (allParties.length > 0) {
-            let filteredParties = allParties;
-            
-            if (partyType === 'customer') {
-                filteredParties = allParties.filter(party => 
-                    party.type === 'customer' || party.type === 'both'
-                );
-            } else if (partyType === 'supplier') {
-                filteredParties = allParties.filter(party => 
-                    party.type === 'supplier' || party.type === 'both'
-                );
-            }
-            
-            return filteredParties.map(party => party.name || party);
-        }
+        const phone = document.getElementById('editPartyPhone').value.trim();
         
-        // Otherwise fetch from API
-        const result = await UniversalCORSHandler.callAPI('getParties');
-        if (result.success && result.parties) {
-            allParties = result.parties;
+        // Validate phone number
+        const phoneValidation = getPhoneValidationMessage(phone);
+        if (!phoneValidation.isValid) {
+            Utils.showNotification(phoneValidation.message, 'warning');
+            Utils.hideLoading(submitBtn);
             
-            let filteredParties = allParties;
-            if (partyType === 'customer') {
-                filteredParties = allParties.filter(party => 
-                    party.type === 'customer' || party.type === 'both'
-                );
-            } else if (partyType === 'supplier') {
-                filteredParties = allParties.filter(party => 
-                    party.type === 'supplier' || party.type === 'both'
-                );
-            }
-            
-            return filteredParties.map(party => party.name || party);
+            // Highlight the phone input
+            const phoneInput = document.getElementById('editPartyPhone');
+            phoneInput.style.borderColor = '#dc3545';
+            phoneInput.focus();
+            return;
         }
+
+        const partyData = {
+            name: document.getElementById('editPartyName').value.trim(),
+            type: document.getElementById('editPartyType').value,
+            phone: phone ? phone.replace(/\s/g, '') : null, // Remove spaces before storing
+            email: document.getElementById('editPartyEmail').value.trim() || null,
+            address: document.getElementById('editPartyAddress').value.trim() || null,
+            updated_at: new Date().toISOString()
+        };
+
+        // Check if party already exists (excluding current party)
+        const existingParty = allParties.find(party => 
+            party.name.toLowerCase() === partyData.name.toLowerCase() && 
+            party.id !== editingPartyId
+        );
+
+        if (existingParty) {
+            Utils.showNotification('Another party with this name already exists', 'warning');
+            Utils.hideLoading(submitBtn);
+            return;
+        }
+
+        await SupabaseService.updateParty(editingPartyId, partyData);
+        Utils.showNotification('Party updated successfully', 'success');
         
-        return [];
+        closeEditPartyPage();
+        
+        // Refresh parties list
+        await loadParties();
         
     } catch (error) {
-        console.error("💥 Error getting parties for dropdown:", error);
-        return [];
+        console.error('Error updating party:', error);
+        Utils.showNotification('Error updating party', 'error');
+    } finally {
+        Utils.hideLoading(submitBtn);
     }
 }
 
-// Initialize parties when the page loads
-document.addEventListener('DOMContentLoaded', function() {
-    console.log("🚀 Parties module loaded");
-    
-    // Initialize parties after a short delay to ensure other components are ready
-    setTimeout(() => {
-        initializeParties();
-    }, 1000);
-});
-function debugPartiesState() {
-    console.log("=== DEBUG PARTIES STATE ===");
-    console.log("allParties array:", window.allParties);
-    console.log("allParties length:", window.allParties.length);
-    console.log("Current display:", document.getElementById('parties-list').innerHTML);
-    console.log("=== END DEBUG ===");
+async function deletePartyFromEdit(partyId) {
+    const party = allParties.find(p => p.id === partyId);
+    if (!party) return;
+
+    if (confirm(`Are you sure you want to delete "${party.name}"? This action cannot be undone and may affect existing invoices.`)) {
+        try {
+            await SupabaseService.deleteParty(partyId);
+            Utils.showNotification('Party deleted successfully', 'success');
+            closeEditPartyPage();
+            await loadParties(); // Refresh the list
+        } catch (error) {
+            console.error('Error deleting party:', error);
+            Utils.showNotification('Error deleting party', 'error');
+        }
+    }
 }
 
-// Call this from browser console to check state
-window.debugParties = debugPartiesState;
+async function deleteParty(partyId) {
+    const party = allParties.find(p => p.id === partyId);
+    if (!party) return;
+
+    if (confirm(`Are you sure you want to delete ${party.name}? This action cannot be undone.`)) {
+        try {
+            await SupabaseService.deleteParty(partyId);
+            await loadParties(); // Refresh the list
+        } catch (error) {
+            console.error('Error deleting party:', error);
+        }
+    }
+}
+
+function showPartyManagement() {
+    Navigation.showPage('party-management');
+}

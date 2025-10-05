@@ -1,512 +1,277 @@
-// =====================
-// Sales Module
-// =====================
+// Sales management
+let allSales = [];
+let allCustomers = [];
 
-// =====================
-// Sales Invoice Functions
-// =====================
-
-// Add Sale Item to Invoice
-function addSaleItemToInvoice() {
-  if (!isValidItem("saleItem", "saleItemsList")) return;
-
-   const item = document.getElementById("saleItem").value.trim();
-    const qty = Number(document.getElementById("saleQty").value);
-    const price = Number(document.getElementById("salePrice").value);
-
-  if (!item || qty <= 0) {
-    UIUtils.showNotification("Please enter a valid quantity!", "error");
-    document.getElementById("saleQty").focus();
-    return;
-  }
-  if (price <= 0) {
-    alert("Please enter a valid price!");
-    priceEl.focus();
-    return;
-  }
-
-  const subtotal = qty * price;
-  tempSaleItems.push({ item, qty, price, subtotal });
-  renderSaleInvoiceTable();
-
-  document.getElementById("saleItem").value = "";
-  document.getElementById("saleQty").value = "";
-  document.getElementById("salePrice").value = "";
-  document.getElementById("saleItem").focus();
-}
-
-// Render Sale Invoice Table
-function renderSaleInvoiceTable() {
-  const table = document.getElementById("saleInvoiceTable");
-  let html = `<thead>
-      <tr><th>Item</th><th>Qty</th><th>Price</th><th>Subtotal</th><th>Action</th></tr>
-    </thead><tbody>`;
-
-  tempSaleItems.forEach((row, i) => {
-    html += `<tr>
-      <td>${escapeHtml(row.item)}</td>
-      <td>${row.qty}</td>
-      <td>₹${row.price.toFixed(2)}</td>
-      <td>₹${row.subtotal.toFixed(2)}</td>
-      <td><button onclick="removeSaleItem(${i})">Remove</button></td>
-    </tr>`;
-  });
-
-  const grandTotal = tempSaleItems.reduce((sum, item) => sum + item.subtotal, 0);
-  html += `<tr style="font-weight: bold; background: #f0f0f0;">
-    <td colspan="3" style="text-align: right;">Grand Total:</td>
-    <td>₹${grandTotal.toFixed(2)}</td>
-    <td></td>
-  </tr>`;
-
-  html += "</tbody>";
-  if (table) table.innerHTML = html;
-}
-
-// Remove Sale Item
-function removeSaleItem(i) {
-  tempSaleItems.splice(i, 1);
-  renderSaleInvoiceTable();
-}
-
-// Save Sale Invoice
-async function saveSaleInvoice() {
-  const partyEl = document.getElementById("saleParty");
-  if (!partyEl) return alert("Party selector not found!");
-  const party = partyEl.value;
-  if (!party) {
-    alert("Please select a Party!");
-    partyEl.focus();
-    return;
-  }
-
-  if (tempSaleItems.length === 0) {
-    alert("Add at least one item!");
-    return;
-  }
-
-   const date = DateUtils.formatDateForInput(new Date());
-  
-  try {
-    const result = await UniversalCORSHandler.callAPI('addSaleInvoice', {
-      date: date,
-      party: party,
-      items: JSON.stringify(tempSaleItems)
-    });
-
-    if (result.success) {
-      const invoiceId = result.id;
-      const savedItems = [...tempSaleItems];
-      tempSaleItems = [];
-      renderSaleInvoiceTable();
-
-      showInvoicePage(invoiceId, date, savedItems, "Sale", party);
-      alert("Sale invoice saved successfully!");
-    } else {
-      throw new Error(result.error || 'Failed to save invoice');
-    }
-  } catch (err) {
-    console.error("Failed to save sale invoice:", err);
-    alert("Failed to save invoice: " + err.message);
-  }
-}
-
-// =====================
-// Sales History Functions
-// =====================
-
-// Load Sales
 async function loadSales() {
-  console.log("🔄 Loading sales page...");
-  Navigation.showPage("sales");
-  showSalesLoading();
-
-  try {
-    console.log("📊 Fetching sales data...");
-    const result = await UniversalCORSHandler.callAPI('getSales');
-    
-    if (result.success) {
-      const data = result.data || result;
-      console.log("✅ Sales data loaded:", data.length, "records");
-      window.allSalesData = processSalesData(data);
-      renderSalesTable(window.allSalesData);
-      // Force UI update
-      setTimeout(() => {
-        const salesPage = document.getElementById('sales');
-        if (salesPage && !salesPage.classList.contains('hidden')) {
-          console.log("✅ Sales page should be visible now");
+    try {
+        const salesTable = document.getElementById('salesTable');
+        if (salesTable) {
+            salesTable.innerHTML = `
+                <tr>
+                    <td colspan="6" class="loading-cell">
+                        <div class="loading-spinner"></div>
+                        Loading sales records...
+                    </td>
+                </tr>
+            `;
         }
-      }, 100);
-    } else {
-      throw new Error(result.error || 'Failed to load sales');
+
+        allSales = await SupabaseService.getSales();
+        allCustomers = await SupabaseService.getParties().then(parties => 
+            parties.filter(party => party.type === 'customer' || party.type === 'both')
+        );
+        
+        displaySales(allSales);
+        updateSalesTotal(allSales);
+    } catch (error) {
+        console.error('Error loading sales:', error);
     }
-    
-  } catch (err) {
-    console.error("Failed to load sales:", err);
-    showSalesError("Failed to load sales: " + err.message);
-}
 }
 
-// Process Sales Data
-function processSalesData(data) {
-  if (!Array.isArray(data) || data.length <= 1) {
-    return [];
-  }
+function displaySales(sales) {
+    const salesTable = document.getElementById('salesTable');
+    if (!salesTable) return;
 
-  const rows = data.slice(1); // skip header
-  const invoices = {};
-
-  rows.forEach(r => {
-    if (r.length >= 7) {
-      // [id, date, party, itemName, qty, price, total]
-      const [id, date, party, itemName, qty, price, totalStr] = r;
-      if (!invoices[id]) {
-        invoices[id] = {
-          invoiceId: id,
-          date: date,
-          party: party || "",
-          items: [],
-          total: 0
-        };
-      }
-      const itemTotal = Number(totalStr) || (Number(qty) * Number(price) || 0);
-      invoices[id].items.push({
-        item: itemName,
-        qty: Number(qty) || 0,
-        price: Number(price) || 0,
-        total: itemTotal
-      });
-      invoices[id].total += itemTotal;
+    if (sales.length === 0) {
+        salesTable.innerHTML = `
+            <tr>
+                <td colspan="6" class="empty-state">
+                    <div class="empty-state-content">
+                        <div class="empty-icon">💰</div>
+                        <h3>No Sales Records</h3>
+                        <p>Get started by creating your first sale invoice</p>
+                        <button onclick="showPage('salesInvoice')" class="create-btn">+ Create Sale</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
     }
-  });
 
-  // Convert to array and sort by invoice ID (newest first)
-  return Object.values(invoices).sort((a, b) => b.invoiceId - a.invoiceId);
+    salesTable.innerHTML = `
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Invoice #</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Total Amount</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${sales.map(sale => `
+                <tr data-sale-id="${sale.id}">
+                    <td>
+                        <div class="date-cell">
+                            <div class="date-primary">${Utils.formatDate(sale.invoice_date)}</div>
+                            <div class="date-secondary">${Utils.formatDateTime(sale.created_at)}</div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="invoice-number">#${sale.invoice_number || sale.id.slice(-6)}</div>
+                    </td>
+                    <td>
+                        <div class="party-cell">
+                            <strong>${sale.parties?.name || 'Unknown'}</strong>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="items-cell">
+                            ${sale.sale_items?.slice(0, 2).map(item => `
+                                <div class="item-line">
+                                    <span class="item-name">${item.items?.name || 'Unknown'}</span>
+                                    <span class="item-qty">×${item.quantity}</span>
+                                </div>
+                            `).join('')}
+                            ${sale.sale_items?.length > 2 ? `<div class="more-items">+${sale.sale_items.length - 2} more items</div>` : ''}
+                        </div>
+                    </td>
+                    <td class="amount-cell">
+                        <strong>${Utils.formatCurrency(calculateSaleTotal(sale))}</strong>
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button onclick="viewSale('${sale.id}')" class="action-btn view-btn" title="View">
+                                👁️
+                            </button>
+                            <button onclick="printSale('${sale.id}')" class="action-btn print-btn" title="Print">
+                                🖨️
+                            </button>
+                            <button onclick="deleteSale('${sale.id}')" class="action-btn delete-btn" title="Delete">
+                                🗑️
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('')}
+        </tbody>
+    `;
 }
 
-// Render Sales Table
-function renderSalesTable(salesData, filter = "") {
-  const table = document.getElementById("salesTable");
-  const totalDiv = document.getElementById("salesGrandTotal");
-
-  let grandTotal = 0;
-  let html = `<thead>
-    <tr>
-      <th>Date</th>
-      <th>Invoice ID</th>
-      <th>Party Name</th>
-      <th>Total Amount</th>
-    </tr>
-  </thead><tbody>`;
-
-  if (!salesData || salesData.length === 0) {
-    html += `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #7f8c8d;">
-      <div style="font-size: 18px; margin-bottom: 10px;">📭</div>
-      No sales found
-    </td></tr>`;
-  } else {
-    const searchLower = filter.toLowerCase();
-    let filteredCount = 0;
-
-    salesData.forEach(sale => {
-      // Apply filter
-      const matchesFilter = !filter || 
-        sale.party.toLowerCase().includes(searchLower) ||
-        sale.invoiceId.toString().includes(searchLower) ||
-        sale.date.toLowerCase().includes(searchLower);
-
-      if (!matchesFilter) return;
-      
-      filteredCount++;
-      grandTotal += sale.total;
-
-      html += `<tr class="sale-row" data-invoice-id="${sale.invoiceId}" 
-                style="cursor: pointer; transition: background-color 0.2s;"
-                onmouseover="this.style.backgroundColor='#f8f9fa'" 
-                onmouseout="this.style.backgroundColor='white'"
-                onclick="showSaleInvoice('${sale.invoiceId}')">
-        <td>${escapeHtml(sale.date)}</td>
-        <td style="text-align: center; font-weight: bold; color: #2c3e50;">${escapeHtml(sale.invoiceId)}</td>
-        <td>${escapeHtml(sale.party || "N/A")}</td>
-        <td style="text-align: right; font-weight: bold; color: #e74c3c;">₹${sale.total.toFixed(2)}</td>
-      </tr>`;
-    });
-
-    if (filteredCount === 0 && filter) {
-      html += `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #e74c3c;">
-        <div style="font-size: 18px; margin-bottom: 10px;">🔍</div>
-        No sales match your search
-      </td></tr>`;
-    }
-  }
-
-  html += "</tbody>";
-  if (table) table.innerHTML = html;
-  
-  // Update total at the top
-  if (totalDiv) {
-    const filterText = filter ? ` (${salesData.filter(s => {
-      const searchLower = filter.toLowerCase();
-      return s.party.toLowerCase().includes(searchLower) ||
-             s.invoiceId.toString().includes(searchLower) ||
-             s.date.toLowerCase().includes(searchLower);
-    }).length} records)` : ` (${salesData.length} records)`;
-    
-    totalDiv.innerHTML = `Total Sales: ₹${grandTotal.toFixed(2)}${filterText}`;
-  }
-
-  // Add click event listeners to all rows
-  setTimeout(() => {
-    document.querySelectorAll('.sale-row').forEach(row => {
-      row.addEventListener('click', function() {
-        const invoiceId = this.getAttribute('data-invoice-id');
-        showSaleInvoice(invoiceId);
-      });
-    });
-  }, 100);
+function calculateSaleTotal(sale) {
+    if (!sale.sale_items) return 0;
+    return sale.sale_items.reduce((total, item) => total + (item.quantity * item.price), 0);
 }
 
-// Show Sale Invoice Details
-function showSaleInvoice(invoiceId) {
-  if (!window.allSalesData) {
-    alert("Sales data not loaded. Please refresh and try again.");
-    return;
-  }
+function updateSalesTotal(sales) {
+    const totalElement = document.getElementById('salesGrandTotal');
+    if (!totalElement) return;
 
-  const sale = window.allSalesData.find(s => s.invoiceId == invoiceId);
-  if (!sale) {
-    alert("Sales invoice not found!");
-    return;
-  }
+    const totalAmount = sales.reduce((sum, sale) => sum + calculateSaleTotal(sale), 0);
+    const totalInvoices = sales.length;
 
-  console.log('Showing sale invoice, adding to history');
-  
-  // Show the invoice page with sale details
-  showInvoicePage(
-    sale.invoiceId,
-    sale.date,
-    sale.items,
-    "Sale",
-    sale.party
-  );
+    totalElement.innerHTML = `
+        <div class="total-display-content">
+            <div class="total-amount">${Utils.formatCurrency(totalAmount)}</div>
+            <div class="total-label">Total Sales (${totalInvoices} invoices)</div>
+        </div>
+    `;
 }
 
-// Show Loading State for Sales
-function showSalesLoading() {
-  const table = document.getElementById("salesTable");
-  if (table) {
-    table.innerHTML = `
-      <thead>
-        <tr><th>Date</th><th>Invoice ID</th><th>Party Name</th><th>Total Amount</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td colspan="4" style="text-align: center; padding: 40px;">
-            <div style="display: inline-block; animation: spin 1s linear infinite;">🔄</div>
-            <div style="margin-top: 10px;">Loading sales...</div>
-          </td>
-        </tr>
-      </tbody>`;
-  }
-  
-  const totalDiv = document.getElementById("salesGrandTotal");
-  if (totalDiv) {
-    totalDiv.innerHTML = "Loading...";
-  }
-}
-
-// Show Error for Sales
-function showSalesError(message) {
-  const table = document.getElementById("salesTable");
-  if (table) {
-    table.innerHTML = `
-      <thead>
-        <tr><th>Date</th><th>Invoice ID</th><th>Party Name</th><th>Total Amount</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td colspan="4" style="text-align: center; color: #e74c3c; padding: 30px; background: #fdf2f2;">
-            <div style="font-size: 16px; margin-bottom: 10px;">⚠️ ${message}</div>
-            <button onclick="loadSales()" style="padding: 8px 16px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">
-              Try Again
-            </button>
-          </td>
-        </tr>
-      </tbody>`;
-  }
-}
-
-// Filter Sales
 function filterSales() {
-  const searchBox = document.getElementById('salesSearch');
-  const filter = searchBox ? searchBox.value.trim() : "";
-  renderSalesTable(window.allSalesData, filter);
+    const searchTerm = document.getElementById('salesSearch').value.toLowerCase();
+    const filteredSales = allSales.filter(sale => 
+        (sale.parties?.name || '').toLowerCase().includes(searchTerm) ||
+        (sale.invoice_number || '').toLowerCase().includes(searchTerm) ||
+        sale.sale_items?.some(item => 
+            item.items?.name.toLowerCase().includes(searchTerm)
+        )
+    );
+    displaySales(filteredSales);
+    updateSalesTotal(filteredSales);
 }
 
-// =====================
-// Sales Date Range Filter Functions
-// =====================
-
-// Filter by date range for sales
 function filterSalesByDateRange() {
-  const dateRange = document.getElementById('salesDateRangeFilter').value;
-  const customDateRange = document.getElementById('salesCustomDateRange');
-  
-  if (dateRange === 'custom') {
-    customDateRange.style.display = 'flex';
-  } else {
-    customDateRange.style.display = 'none';
-    applySalesDateFilter(dateRange);
-  }
-}
-
-// Apply date filter based on selected range for sales
-function applySalesDateFilter(range) {
-  if (!window.allSalesData) return;
-  
-  const now = new Date();
-  let filteredData = [...window.allSalesData];
-  
-  switch (range) {
-    case 'today':
-      filteredData = filteredData.filter(sale => isSameDay(new Date(sale.date), now));
-      break;
-      
-    case 'yesterday':
-      const yesterday = new Date(now);
-      yesterday.setDate(yesterday.getDate() - 1);
-      filteredData = filteredData.filter(sale => isSameDay(new Date(sale.date), yesterday));
-      break;
-      
-    case 'thisWeek':
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay());
-      startOfWeek.setHours(0, 0, 0, 0);
-      filteredData = filteredData.filter(sale => new Date(sale.date) >= startOfWeek);
-      break;
-      
-    case 'lastWeek':
-      const startOfLastWeek = new Date(now);
-      startOfLastWeek.setDate(now.getDate() - now.getDay() - 7);
-      startOfLastWeek.setHours(0, 0, 0, 0);
-      const endOfLastWeek = new Date(startOfLastWeek);
-      endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
-      endOfLastWeek.setHours(23, 59, 59, 999);
-      filteredData = filteredData.filter(sale => {
-        const saleDate = new Date(sale.date);
-        return saleDate >= startOfLastWeek && saleDate <= endOfLastWeek;
-      });
-      break;
-      
-    case 'thisMonth':
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      filteredData = filteredData.filter(sale => new Date(sale.date) >= startOfMonth);
-      break;
-      
-    case 'lastMonth':
-      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-      endOfLastMonth.setHours(23, 59, 59, 999);
-      filteredData = filteredData.filter(sale => {
-        const saleDate = new Date(sale.date);
-        return saleDate >= startOfLastMonth && saleDate <= endOfLastMonth;
-      });
-      break;
-      
-    case 'thisYear':
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-      filteredData = filteredData.filter(sale => new Date(sale.date) >= startOfYear);
-      break;
-      
-    case 'lastYear':
-      const startOfLastYear = new Date(now.getFullYear() - 1, 0, 1);
-      const endOfLastYear = new Date(now.getFullYear() - 1, 11, 31);
-      endOfLastYear.setHours(23, 59, 59, 999);
-      filteredData = filteredData.filter(sale => {
-        const saleDate = new Date(sale.date);
-        return saleDate >= startOfLastYear && saleDate <= endOfLastYear;
-      });
-      break;
-      
-    case 'all':
-    default:
-      // Show all data
-      break;
-  }
-  
-  const searchText = document.getElementById('salesSearch').value;
-  renderSalesTable(filteredData, searchText);
-}
-
-// Apply custom date range for sales
-function applySalesCustomDateRange() {
-  const fromDate = document.getElementById('salesCustomDateFrom').value;
-  const toDate = document.getElementById('salesCustomDateTo').value;
-  
-  if (!fromDate || !toDate) {
-    alert('Please select both start and end dates');
-    return;
-  }
-  
-  if (!window.allSalesData) return;
-  
-  const startDate = new Date(fromDate);
-  const endDate = new Date(toDate);
-  endDate.setHours(23, 59, 59, 999);
-  
-  const filteredData = window.allSalesData.filter(sale => {
-    const saleDate = new Date(sale.date);
-    return saleDate >= startDate && saleDate <= endDate;
-  });
-  
-  const searchText = document.getElementById('salesSearch').value;
-  renderSalesTable(filteredData, searchText);
-}
-
-// Initialize date inputs for sales
-function initializeSalesDateInputs() {
-  const today = new Date();
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(today.getDate() - 7);
-  
-  document.getElementById('salesCustomDateFrom').value = formatDateForInput(oneWeekAgo);
-  document.getElementById('salesCustomDateTo').value = formatDateForInput(today);
-}
-
-// =====================
-// Sales Shortcuts Registration
-// =====================
-function registerSalesShortcuts() {
-    shortcutManager.register(['Alt', 'S'], () => showPage("salesInvoice"), "Create Sales Invoice");
-    shortcutManager.register(['Alt', 'L'], () => loadSales(), "View Sales");
+    const range = document.getElementById('salesDateRangeFilter').value;
     
-    // Sales invoice specific shortcuts
-    shortcutManager.register(['Alt', 'Enter'], () => {
-        if (!document.getElementById("salesInvoice").classList.contains("hidden")) {
-            saveSaleInvoice();
-        }
-    }, "Save Sales Invoice");
-}
+    if (range === 'custom') {
+        document.getElementById('salesCustomDateRange').style.display = 'flex';
+        return;
+    } else {
+        document.getElementById('salesCustomDateRange').style.display = 'none';
+    }
 
-// =====================
-// Event Listeners for Sales
-// =====================
-function initializeSalesEvents() {
-    // Enter key for sale price field
-    const salePriceEl = document.getElementById("salePrice");
-    if (salePriceEl) {
-        salePriceEl.addEventListener("keypress", e => { 
-            if (e.key === "Enter") addSaleItemToInvoice(); 
+    const dateRange = DateRangeUtils.getDateRange(range);
+    let filteredSales = allSales;
+
+    if (dateRange.start && dateRange.end) {
+        filteredSales = allSales.filter(sale => {
+            const saleDate = new Date(sale.invoice_date);
+            return saleDate >= new Date(dateRange.start) && saleDate <= new Date(dateRange.end);
         });
     }
-    
-    // Register sales shortcuts
-    registerSalesShortcuts();
+
+    displaySales(filteredSales);
+    updateSalesTotal(filteredSales);
 }
 
-// Initialize when DOM is loaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeSalesEvents);
-} else {
-    initializeSalesEvents();
+function applySalesCustomDateRange() {
+    const fromDate = document.getElementById('salesCustomDateFrom').value;
+    const toDate = document.getElementById('salesCustomDateTo').value;
+
+    if (!fromDate || !toDate) {
+        Utils.showNotification('Please select both from and to dates', 'warning');
+        return;
+    }
+
+    const filteredSales = allSales.filter(sale => {
+        const saleDate = new Date(sale.invoice_date);
+        return saleDate >= new Date(fromDate) && saleDate <= new Date(toDate + 'T23:59:59');
+    });
+
+    displaySales(filteredSales);
+    updateSalesTotal(filteredSales);
+}
+
+function viewSale(saleId) {
+    const sale = allSales.find(s => s.id === saleId);
+    if (sale) {
+        // For now, show basic info
+        const total = calculateSaleTotal(sale);
+        Utils.showNotification(`Viewing sale #${sale.invoice_number || sale.id.slice(-6)} - Total: ${Utils.formatCurrency(total)}`, 'info');
+    }
+}
+
+function printSale(saleId) {
+    const sale = allSales.find(s => s.id === saleId);
+    if (sale) {
+        // Simple print functionality
+        const printWindow = window.open('', '_blank');
+        const total = calculateSaleTotal(sale);
+        
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Sale Invoice #${sale.invoice_number || sale.id.slice(-6)}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .header { text-align: center; margin-bottom: 30px; }
+                        .details { margin-bottom: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f5f5f5; }
+                        .total { font-weight: bold; font-size: 1.2em; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Sale Invoice</h1>
+                        <p>Invoice #: ${sale.invoice_number || sale.id.slice(-6)}</p>
+                        <p>Date: ${Utils.formatDate(sale.invoice_date)}</p>
+                    </div>
+                    <div class="details">
+                        <p><strong>Customer:</strong> ${sale.parties?.name || 'Unknown'}</p>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Quantity</th>
+                                <th>Price</th>
+                                <th>Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sale.sale_items?.map(item => `
+                                <tr>
+                                    <td>${item.items?.name || 'Unknown'}</td>
+                                    <td>${item.quantity}</td>
+                                    <td>${Utils.formatCurrency(item.price)}</td>
+                                    <td>${Utils.formatCurrency(item.quantity * item.price)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3" style="text-align: right;"><strong>Total:</strong></td>
+                                <td class="total">${Utils.formatCurrency(total)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    ${sale.notes ? `<div class="notes"><strong>Notes:</strong> ${sale.notes}</div>` : ''}
+                </body>
+            </html>
+        `);
+        
+        printWindow.document.close();
+        printWindow.print();
+    }
+}
+
+async function deleteSale(saleId) {
+    const sale = allSales.find(s => s.id === saleId);
+    if (!sale) return;
+
+    if (confirm(`Are you sure you want to delete sale invoice #${sale.invoice_number || sale.id.slice(-6)}? This action cannot be undone.`)) {
+        try {
+            // In a real app, you'd properly handle the deletion with transaction rollback
+            await supabase.from('sales').delete().eq('id', saleId);
+            Utils.showNotification('Sale invoice deleted successfully', 'success');
+            await loadSales(); // Refresh the list
+        } catch (error) {
+            console.error('Error deleting sale:', error);
+            Utils.showNotification('Error deleting sale invoice', 'error');
+        }
+    }
 }
