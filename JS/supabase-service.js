@@ -139,29 +139,30 @@ class SupabaseService {
         }
     }
 
-    static async updateItem(id, itemData) {
-        try {
-            const supabase = this.getSupabase();
-            const { data, error } = await supabase
-                .from('items')
-                .update(itemData)
-                .eq('id', id)
-                .select()
-                .single();
+   // Add this to your SupabaseService class in supabase-service.js
+static async updateItem(id, itemData) {
+    try {
+        const supabase = this.getSupabase();
+        const { data, error } = await supabase
+            .from('items')
+            .update(itemData)
+            .eq('id', id)
+            .select()
+            .single();
 
-            if (error) throw error;
-            if (typeof Utils !== 'undefined') {
-                Utils.showNotification('Item updated successfully', 'success');
-            }
-            return data;
-        } catch (error) {
-            console.error('Error updating item:', error);
-            if (typeof Utils !== 'undefined') {
-                Utils.showNotification('Error updating item', 'error');
-            }
-            throw error;
+        if (error) throw error;
+        if (typeof Utils !== 'undefined') {
+            Utils.showNotification('Item updated successfully', 'success');
         }
+        return data;
+    } catch (error) {
+        console.error('Error updating item:', error);
+        if (typeof Utils !== 'undefined') {
+            Utils.showNotification('Error updating item', 'error');
+        }
+        throw error;
     }
+}
 
     static async updateItemStock(id, newStock) {
         try {
@@ -180,6 +181,23 @@ class SupabaseService {
             throw error;
         }
     }
+// Delete Item
+    static async deleteItem(id) {
+    try {
+        const supabase = this.getSupabase();
+        const { error } = await supabase
+            .from('items')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        Utils.showNotification('Item deleted successfully', 'success');
+    } catch (error) {
+        console.error('Error deleting item:', error);
+        Utils.showNotification('Error deleting item', 'error');
+        throw error;
+    }
+}
 
     // Sales operations
     static async getSales() {

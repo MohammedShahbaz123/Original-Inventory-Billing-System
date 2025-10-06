@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inventory & Invoices</title>
   <link rel="stylesheet" href="./Style.css">
+  <!-- Include jspreadsheet and jsuites for spreadsheet functionality -->
+    <link rel="stylesheet" href="https://jspreadsheet.com/v9/jspreadsheet.css" />
+    <link rel="stylesheet" href="https://jsuites.net/v4/jsuites.css" />
 </head>
 <body>
   <header class="sidebar">
@@ -16,7 +19,7 @@
       <a href="#" onclick="showPartyManagement(); return false;" class="sidebar-item">
         <span class="sidebar-icon" id="parties-nav">👥</span>Parties
       </a>
-      <a href="#" onclick="loadInventory(); return false;" class="sidebar-item">
+      <a href="#" onclick="showInventoryPage(); return false;" class="sidebar-item">
         <span class="sidebar-icon" id="inventory-nav">📦</span>Inventory
       </a>
       <a href="#" onclick="loadSales(); return false;" class="sidebar-item">
@@ -534,37 +537,142 @@
     </div>
 
     <!-- Inventory Page -->
-    <div id="inventory" class="page hidden">
-      <div class="header">
-        <div class="header-left">
-          <h1>Inventory</h1>
-          <div id="inventorySummary" class="summary-display">
-            <!-- Inventory summary will be displayed here -->
-          </div>
+        <div id="inventory" class="page">
+            <div class="header">
+                <div class="header-left">
+                    <h1>Inventory</h1>
+                    <div id="inventorySummary" class="summary-display">
+                        <!-- Inventory summary will be displayed here -->
+                    </div>
+                </div>
+                <div class="header-right">
+                    <button onclick="loadInventory()" class="refresh-btn">🔄 Refresh</button>
+                </div>
+            </div>
+            
+            <!-- Bulk Actions Section -->
+            <div class="bulk-actions" id="bulkActions" style="display: none;">
+                <div class="bulk-controls">
+                    <span id="selectedCount">0 items selected</span>
+                    <div class="bulk-dropdown">
+                        <select id="bulkActionDropdown" class="bulk-action-select" onchange="handleBulkActionChange(this)">
+                            <option value="">Bulk Actions...</option>
+                            <option value="bulk-add">📥 Bulk Add Items</option>
+                            <option value="bulk-edit">✏️ Bulk Edit Items</option>
+                            <option value="add-stock">📦 Add Stock to Selected</option>
+                            <option value="edit-selected">⚡ Edit Selected Items</option>
+                            <option value="delete-selected">🗑️ Delete Selected</option>
+                        </select>
+                    </div>
+                    <button onclick="clearSelection()" class="bulk-btn cancel">✕ Clear Selection</button>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <div class="controls-left">
+                    <input type="text" id="inventorySearch" placeholder="Search by item name..." 
+                           class="search-input" onkeyup="filterInventory()">
+                    
+                    <!-- Categories Filter -->
+                    <select id="categoryFilter" class="category-filter" onchange="filterByCategory()">
+                        <option value="all">All Categories</option>
+                        <!-- Categories will be populated dynamically -->
+                    </select>
+                </div>
+                
+                <div class="controls-right">
+                    <!-- Category Management -->
+                    <button onclick="showCreateCategoryModal()" class="category-btn">📁 Create Category</button>
+                    <button onclick="showPage('createItem')" class="create-item-btn">+ Add Item</button>
+                </div>
+            </div>
+            
+            <div id="inventoryTableContainer">
+                <table id="inventoryTable" class="data-table">
+                    <!-- Table will be populated by JavaScript -->
+                </table>
+            </div>
         </div>
-        <div class="header-right">
-          <button onclick="loadInventory()" class="refresh-btn">🔄 Refresh</button>
+
+        <!-- Create Category Modal -->
+        <div id="createCategoryModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Create New Category</h3>
+                    <span class="close" onclick="closeCreateCategoryModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="newCategoryName" placeholder="Enter category name" class="modal-input">
+                    <div class="modal-actions">
+                        <button onclick="createNewCategory()" class="confirm-btn">Create Category</button>
+                        <button onclick="closeCreateCategoryModal()" class="cancel-btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-      
-      <div class="controls">
-        <div class="controls-left">
-          <input type="text" id="inventorySearch" placeholder="Search by item name..." 
-                 class="search-input" onkeyup="filterInventory()">
+
+        <!-- Google Sheets Modal -->
+        <div id="sheetModal" class="modal hidden">
+            <div class="modal-content sheet-modal">
+                <div class="modal-header">
+                    <h3 id="sheetModalTitle">Bulk Add Items</h3>
+                    <div class="modal-header-actions">
+                        <button onclick="enlargeSheet()" class="enlarge-btn" title="Enlarge">
+                            🔍 Enlarge
+                        </button>
+                        <button onclick="downloadSheetTemplate()" class="download-btn" title="Download Template">
+                            📥 Download Template
+                        </button>
+                        <span class="close" onclick="closeSheetModal()">&times;</span>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div class="sheet-instructions">
+                        <p id="sheetInstructions">
+                            <!-- Instructions will be dynamically inserted -->
+                        </p>
+                    </div>
+                    
+                    <div class="sheet-container">
+                        <div id="spreadsheet"></div>
+                    </div>
+                    
+                    <div class="sheet-actions">
+                        <button onclick="addSampleData()" class="sample-data-btn">+ Add Sample Row</button>
+                        <div class="action-buttons">
+                            <button onclick="closeSheetModal()" class="cancel-btn">Cancel</button>
+                            <button onclick="processSheetData()" id="processSheetBtn" class="confirm-btn">
+                                💾 Save Items
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <div class="controls-right">
-          <button onclick="showPage('createItem')" class="create-item-btn">+ Add Item</button>
+
+        <!-- Enlarged Sheet Modal -->
+        <div id="enlargedSheetModal" class="modal hidden">
+            <div class="modal-content enlarged-sheet-modal">
+                <div class="modal-header">
+                    <h3>Google Sheets View - <span id="enlargedSheetTitle">Bulk Add Items</span></h3>
+                    <div class="modal-header-actions">
+                        <button onclick="syncFromEnlargedSheet()" class="sync-btn" title="Sync back to website">
+                            🔄 Sync to Website
+                        </button>
+                        <span class="close" onclick="closeEnlargedSheet()">&times;</span>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div class="enlarged-sheet-container">
+                        <iframe id="googleSheetsFrame" src="" style="width: 100%; height: 80vh; border: none;"></iframe>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-      
-      <div id="inventoryTableContainer">
-        <table id="inventoryTable" class="data-table">
-          <!-- Table will be populated by JavaScript -->
-        </table>
-      </div>
-    </div>
   </main>
+
+   <script src="https://jsuites.net/v4/jsuites.js"></script>
+    <script src="https://jspreadsheet.com/v9/jspreadsheet.js"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase-config.js"></script>
