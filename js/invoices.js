@@ -111,23 +111,15 @@ function addSaleItemToInvoice() {
     const itemId = item.id;
     const subtotal = quantity * price;
     
-    // Check if item already exists in invoice
-    const existingItemIndex = saleInvoiceItems.findIndex(item => item.item_id === itemId);
-    
-    if (existingItemIndex > -1) {
-        // Update existing item
-        saleInvoiceItems[existingItemIndex].quantity += quantity;
-        saleInvoiceItems[existingItemIndex].subtotal += subtotal;
-    } else {
-        // Add new item
-        saleInvoiceItems.push({
-            item_id: itemId,
-            item_name: itemName,
-            quantity: quantity,
-            price: price,
-            subtotal: subtotal
-        });
-    }
+    // FIX: Always add as new row, don't check for existing items
+    // This allows adding the same item with different prices/quantities
+    saleInvoiceItems.push({
+        item_id: itemId,
+        item_name: itemName,
+        quantity: quantity,
+        price: price,
+        subtotal: subtotal
+    });
     
     // Clear the form
     document.getElementById('saleItem').value = '';
@@ -138,6 +130,8 @@ function addSaleItemToInvoice() {
     
     updateSaleInvoiceTable();
     updateSaleGrandTotal();
+    
+    Utils.showNotification('Item added to invoice', 'success');
 }
 
 function updateSaleInvoiceTable() {
@@ -158,7 +152,7 @@ function updateSaleInvoiceTable() {
     }
     
     tbody.innerHTML = saleInvoiceItems.map((item, index) => `
-        <tr>
+        <tr data-item-index="${index}">
             <td>${item.item_name}</td>
             <td>${item.quantity}</td>
             <td>${Utils.formatCurrency(item.price)}</td>
@@ -203,53 +197,56 @@ function clearSaleInvoice() {
 }
 
 async function saveSaleInvoice() {
-    const saleDate = document.getElementById('saleDate').value;
-    const partyId = document.getElementById('saleParty').value;
-    const notes = document.getElementById('saleNotes').value;
-    
-    // Validation
-    if (!saleDate) {
-        Utils.showNotification('Please select invoice date', 'warning');
-        return;
-    }
-    
-    if (!partyId) {
-        Utils.showNotification('Please select a customer', 'warning');
-        return;
-    }
-    
-    if (saleInvoiceItems.length === 0) {
-        Utils.showNotification('Please add at least one item to the invoice', 'warning');
-        return;
-    }
-    
-    const saveBtn = document.getElementById('saveSaleBtn');
-    Utils.showLoading(saveBtn);
-    
     try {
-        const saleData = {
-            invoice_date: saleDate,
-            party_id: partyId,
-            notes: notes || null,
-            created_at: new Date().toISOString()
-        };
+        console.log('💾 Starting saveSale...');
         
-        const saleItemsData = saleInvoiceItems.map(item => ({
+        // Collect form data with validation
+        const partySelect = document.getElementById('saleParty');
+        const dateInput = document.getElementById('saleDate');
+        const invoiceNumberInput = document.getElementById('saleInvoiceNumber');
+        
+        if (!partySelect || !partySelect.value) {
+            throw new Error('Please select a customer');
+        }
+        if (!dateInput || !dateInput.value) {
+            throw new Error('Please select a date');
+        }
+
+        const saleData = {
+    party_id: partySelect.value,
+    invoice_date: dateInput.value, // This should be YYYY-MM-DD format
+    invoice_number: invoiceNumberInput?.value || null,
+    notes: document.getElementById('saleNotes')?.value || null
+};
+
+        console.log('📄 Sale data collected:', saleData);
+
+        // FIX: Collect sale items from the saleInvoiceItems array
+        const saleItems = saleInvoiceItems.map(item => ({
             item_id: item.item_id,
             quantity: item.quantity,
             price: item.price
         }));
+
+        console.log(`🛒 Found ${saleItems.length} items from saleInvoiceItems array`, saleItems);
+
+        if (saleItems.length === 0) {
+            throw new Error('Please add at least one item to the sale');
+        }
+
+        console.log('🎯 Final data to send:', { saleData, saleItems });
+
+        // Call the service
+        const result = await SupabaseService.createSale(saleData, saleItems);
+        console.log('✅ Sale saved successfully:', result);
         
-        await SupabaseService.createSale(saleData, saleItemsData);
-        
-        // Clear and redirect
-        clearSaleInvoice();
+        // Reset form and go back
+        clearSaleInvoice(); // Use clearSaleInvoice instead of resetSaleForm
         Navigation.showPage('sales');
         
     } catch (error) {
-        console.error('Error saving sale invoice:', error);
-    } finally {
-        Utils.hideLoading(saveBtn);
+        console.error('💥 Error in saveSale:', error);
+        Utils.showNotification(error.message, 'error');
     }
 }
 

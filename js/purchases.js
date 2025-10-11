@@ -2,6 +2,13 @@
 let allPurchases = [];
 let allSuppliers = [];
 
+// Navigation function
+function showPurchasePage() {
+    console.log('📦 Navigating to purchase page');
+    Navigation.showPage('purchases');
+    loadPurchases();
+}
+
 async function loadPurchases() {
     try {
         const purchasesTable = document.getElementById('purchasesTable');

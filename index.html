@@ -7,7 +7,9 @@
   <link rel="stylesheet" href="./Style.css">
   <!-- Include jspreadsheet and jsuites for spreadsheet functionality -->
     <link rel="stylesheet" href="https://jspreadsheet.com/v9/jspreadsheet.css" />
-    <link rel="stylesheet" href="https://jsuites.net/v4/jsuites.css" />
+<link rel="stylesheet" href="https://jsuites.net/v4/jsuites.css" />
+<script src="https://jsuites.net/v4/jsuites.js"></script>
+<script src="https://jspreadsheet.com/v9/jspreadsheet.js"></script>
 </head>
 <body>
   <header class="sidebar">
@@ -22,10 +24,10 @@
       <a href="#" onclick="showInventoryPage(); return false;" class="sidebar-item">
         <span class="sidebar-icon" id="inventory-nav">📦</span>Inventory
       </a>
-      <a href="#" onclick="loadSales(); return false;" class="sidebar-item">
+      <a href="#" onclick="showSalesPage(); return false;" class="sidebar-item">
         <span class="sidebar-icon" id="sales-nav">💰</span>Sales
       </a>
-      <a href="#" onclick="loadPurchases(); return false;" class="sidebar-item">
+      <a href="#" onclick="showPurchasePage(); return false;" class="sidebar-item">
         <span class="sidebar-icon" id="purchase-nav">🛒</span>Purchases
       </a>
     </nav>
@@ -236,6 +238,42 @@
         </div>
       </div>
     </div>
+
+    <!-- Invoice View Page -->
+<div id="invoiceView" class="page hidden">
+    <div class="header">
+        <div class="header-left">
+            <button onclick="showPage('sales')" class="back-arrow-btn">← Back to Sales</button>
+            <h1>Invoice Details</h1>
+        </div>
+        <div class="header-right">
+            <!-- Download Dropdown -->
+            <div class="dropdown">
+                <button class="dropdown-btn secondary-btn"><a href="#" onclick="downloadInvoice('pdf'); return false;">📥 Download (PDF)</a>▾</button>
+                <div class="dropdown-content">
+                    <a href="#" onclick="downloadInvoice('thermal'); return false;">🧾 Thermal Print</a>
+                    <a href="#" onclick="downloadInvoice('duplicate'); return false;">📋 Duplicate</a>
+                    <a href="#" onclick="downloadInvoice('triplicate'); return false;">📑 Triplicate</a>
+                </div>
+            </div>
+            <!-- Print Dropdown -->
+            <div class="dropdown">
+                <button class="dropdown-btn print-btn"><a href="#" onclick="printInvoice('pdf'); return false;">🖨️ Print (PDF)</a> ▾</button>
+                <div class="dropdown-content">
+                    <a href="#" onclick="printInvoice('thermal'); return false;">🧾 Thermal Print</a>
+                    <a href="#" onclick="printInvoice('duplicate'); return false;">📋 Print Duplicate</a>
+                    <a href="#" onclick="printInvoice('triplicate'); return false;">📑 Print Triplicate</a>
+                </div>
+            </div>
+            
+            <button onclick="shareInvoice()" class="secondary-btn" title="Share Invoice">📤 Share</button>
+            <button onclick="deleteCurrentInvoice()" class="delete-btn">🗑️ Delete</button>
+        </div>
+    </div>
+    <div id="invoiceDetails" class="invoice-view-container">
+        <!-- Invoice content will be loaded here -->
+    </div>
+</div>
 
     <!-- Sales Invoice Page -->
     <div id="salesInvoice" class="page hidden">
@@ -537,62 +575,69 @@
     </div>
 
     <!-- Inventory Page -->
-        <div id="inventory" class="page">
-            <div class="header">
-                <div class="header-left">
-                    <h1>Inventory</h1>
-                    <div id="inventorySummary" class="summary-display">
-                        <!-- Inventory summary will be displayed here -->
-                    </div>
-                </div>
-                <div class="header-right">
-                    <button onclick="loadInventory()" class="refresh-btn">🔄 Refresh</button>
-                </div>
-            </div>
-            
-            <!-- Bulk Actions Section -->
-            <div class="bulk-actions" id="bulkActions" style="display: none;">
-                <div class="bulk-controls">
-                    <span id="selectedCount">0 items selected</span>
-                    <div class="bulk-dropdown">
-                        <select id="bulkActionDropdown" class="bulk-action-select" onchange="handleBulkActionChange(this)">
-                            <option value="">Bulk Actions...</option>
-                            <option value="bulk-add">📥 Bulk Add Items</option>
-                            <option value="bulk-edit">✏️ Bulk Edit Items</option>
-                            <option value="add-stock">📦 Add Stock to Selected</option>
-                            <option value="edit-selected">⚡ Edit Selected Items</option>
-                            <option value="delete-selected">🗑️ Delete Selected</option>
-                        </select>
-                    </div>
-                    <button onclick="clearSelection()" class="bulk-btn cancel">✕ Clear Selection</button>
-                </div>
-            </div>
-            
-            <div class="controls">
-                <div class="controls-left">
-                    <input type="text" id="inventorySearch" placeholder="Search by item name..." 
-                           class="search-input" onkeyup="filterInventory()">
-                    
-                    <!-- Categories Filter -->
-                    <select id="categoryFilter" class="category-filter" onchange="filterByCategory()">
-                        <option value="all">All Categories</option>
-                        <!-- Categories will be populated dynamically -->
-                    </select>
-                </div>
-                
-                <div class="controls-right">
-                    <!-- Category Management -->
-                    <button onclick="showCreateCategoryModal()" class="category-btn">📁 Create Category</button>
-                    <button onclick="showPage('createItem')" class="create-item-btn">+ Add Item</button>
-                </div>
-            </div>
-            
-            <div id="inventoryTableContainer">
-                <table id="inventoryTable" class="data-table">
-                    <!-- Table will be populated by JavaScript -->
-                </table>
+<div id="inventory" class="page">
+    <div class="header">
+        <div class="header-left">
+            <h1>Inventory</h1>
+            <div id="inventorySummary" class="summary-display">
+                <!-- Inventory summary will be displayed here -->
             </div>
         </div>
+        <div class="header-right">
+            <button onclick="loadInventory()" class="refresh-btn">🔄 Refresh</button>
+        </div>
+    </div>
+    
+    <!-- Bulk Actions Panel (shown when items are selected) -->
+    <div class="bulk-actions" id="bulkActions" style="display: none;">
+        <div class="bulk-controls">
+            <span id="selectedCount">0 items selected</span>
+            <button onclick="bulkAddStock()" class="bulk-btn">📦 Add Stock</button>
+            <button onclick="bulkEditSelectedItems()" class="bulk-btn">✏️ Edit Selected</button>
+            <button onclick="bulkDeleteItems()" class="bulk-btn delete">🗑️ Delete Selected</button>
+            <button onclick="clearSelection()" class="bulk-btn cancel">✕ Clear Selection</button>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <div class="controls-left">
+            <input type="text" id="inventorySearch" placeholder="Search by item name..." 
+                   class="search-input" onkeyup="filterInventory()">
+            
+            <!-- Categories Filter -->
+            <select id="categoryFilter" class="category-filter" onchange="filterByCategory()">
+                <option value="all">All Categories</option>
+                <!-- Categories will be populated dynamically -->
+            </select>
+             <!-- Add the manage categories button -->
+    <button onclick="showManageCategoriesModal()" class="secondary-btn small">
+        📁 Manage
+    </button>
+        </div>
+        
+        <div class="controls-right">
+            <!-- Bulk Actions Dropdown (Always Visible) -->
+            <select id="bulkActionDropdown" class="bulk-action-select" onchange="handleBulkActionChange(this)">
+                <option value="">Bulk Actions...</option>
+                <option value="bulk-add">📥 Bulk Add Items</option>
+                <option value="bulk-edit">✏️ Bulk Edit Items</option>
+                <option value="add-stock">📦 Add Stock to Selected</option>
+                <option value="edit-selected">⚡ Edit Selected Items</option>
+                <option value="delete-selected">🗑️ Delete Selected</option>
+            </select>
+            
+            <!-- Category Management -->
+            <button onclick="showCreateCategoryModal()" class="category-btn">📁 Create Category</button>
+            <button onclick="showPage('createItem')" class="create-item-btn">+ Add Item</button>
+        </div>
+    </div>
+    
+    <div id="inventoryTableContainer">
+        <table id="inventoryTable" class="data-table">
+            <!-- Table will be populated by JavaScript -->
+        </table>
+    </div>
+</div>
 
         <!-- Create Category Modal -->
         <div id="createCategoryModal" class="modal hidden">
@@ -670,9 +715,6 @@
             </div>
         </div>
   </main>
-
-   <script src="https://jsuites.net/v4/jsuites.js"></script>
-    <script src="https://jspreadsheet.com/v9/jspreadsheet.js"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase-config.js"></script>
